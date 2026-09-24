@@ -1,0 +1,88 @@
+name: CSC 370 Database CI
+
+on:
+  push:
+    branches: [ main, master, dev ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-database:
+    name: Build & Test MySQL Database
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: project_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify MySQL Connection
+        run: |
+          mysql -h 127.0.0.1 -P 3306 -u root -prootpassword -e "SHOW DATABASES;"
+
+      - name: Test SQL DDL Schema Build
+        run: |
+          if [ -f "sql/ddl.sql" ]; then
+            echo "Executing sql/ddl.sql..."
+            mysql -h 127.0.0.1 -P 3306 -u root -prootpassword project_db < sql/ddl.sql
+            echo "DDL schema compiled successfully!"
+          else
+            echo "Notice: sql/ddl.sql not found. Skipping DDL build test."
+          fi
+
+      - name: Test SQL Data Seeding
+        run: |
+          if [ -f "sql/seed.sql" ]; then
+            echo "Executing sql/seed.sql..."
+            mysql -h 127.0.0.1 -P 3306 -u root -prootpassword project_db < sql/seed.sql
+            echo "Seed data inserted successfully!"
+          else
+            echo "Notice: sql/seed.sql not found. Skipping data seed test."
+          fi
+
+      - name: Test SQL Sample Queries
+        run: |
+          if [ -f "sql/queries.sql" ]; then
+            echo "Executing sql/queries.sql..."
+            mysql -h 127.0.0.1 -P 3306 -u root -prootpassword project_db < sql/queries.sql
+            echo "Sample queries executed successfully!"
+          else
+            echo "Notice: sql/queries.sql not found. Skipping queries test."
+          fi
+
+  lint-docs:
+    name: Lint Documentation & Markdown
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Check Required Documentation Files
+        run: |
+          echo "Checking repository structure..."
+          missing=0
+          for file in "README.md" "AI_USE.md"; do
+            if [ ! -f "$file" ]; then
+              echo "WARNING: Required project file $file is missing."
+              missing=$((missing+1))
+            else
+              echo "Found $file."
+            fi
+          done
+          if [ $missing -gt 0 ]; then
+            echo "Please ensure all submission documentation files are present."
+          fi
