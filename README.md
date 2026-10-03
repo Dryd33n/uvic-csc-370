@@ -31,10 +31,15 @@ Needs [Docker Desktop](https://www.docker.com/products/docker-desktop/) running.
    docker compose exec db mysql -uroot -prootpassword -t stock_trading -e "SELECT 'user' AS tbl, COUNT(*) AS n FROM user UNION ALL SELECT 'stock', COUNT(*) FROM stock UNION ALL SELECT 'transaction', COUNT(*) FROM transaction UNION ALL SELECT 'holds', COUNT(*) FROM holds"
    ```
 
-Steps 2 and 3 print the warning `Using a password on the command line interface can be insecure`, which is expected. Step 3 should show `user` 9, `stock` 14, `transaction` 82, `holds` 22.
+4. Run the constraint tests. Each of the 10 statements in `sql/constraint_tests.sql` breaks a rule and should be rejected, so expect 10 `ERROR` lines; the counts printed at the end should still be 9 / 14 / 82 / 22. The file rolls back at the end, so it never changes the data.
+   ```
+   docker compose exec db sh -c "mysql -uroot -prootpassword --force -t stock_trading < /sql/constraint_tests.sql"
+   ```
+
+Steps 2-4 print the warning `Using a password on the command line interface can be insecure`, which is expected. Step 3 should show `user` 9, `stock` 14, `transaction` 82, `holds` 22.
 
 - **Step 1 fails** (for example `container papertrade-db exited`): an SQL file has an error. Run `docker compose logs db` to find it, fix the file, then reset as below.
-- **After you edit `sql/ddl.sql` or `sql/seed.sql`:** the files only load when the database is first created. Run `docker compose down -v` to delete it, then step 1 again. Edits to `queries.sql` need no reset.
+- **After you edit `sql/ddl.sql` or `sql/seed.sql`:** the files only load when the database is first created. Run `docker compose down -v` to delete it, then step 1 again. Edits to `queries.sql` or `constraint_tests.sql` need no reset.
 - **When you're done:** `docker compose down -v` deletes the container and its data.
 
 ### Option B: a local MySQL 8.0 server (macOS / Linux)
@@ -43,6 +48,7 @@ Steps 2 and 3 print the warning `Using a password on the command line interface 
 mysql -u root -p < sql/ddl.sql
 mysql -u root -p < sql/seed.sql
 mysql -u root -p < sql/queries.sql
+mysql -u root -p --force stock_trading < sql/constraint_tests.sql
 ```
 
 To check, run the `SELECT` from step 5 in `mysql -u root -p stock_trading`. You should get the same counts.
@@ -53,7 +59,8 @@ To check, run the `SELECT` from step 5 in `mysql -u root -p stock_trading`. You 
 | --- | --- |
 | `sql/ddl.sql` | Creates the `stock_trading` database and its tables |
 | `sql/seed.sql` | Sample data: 9 users, 14 stocks (NASDAQ, NYSE, TSX), 82 trades, current holdings |
-| `sql/queries.sql` | Demo queries (not written yet) |
+| `sql/queries.sql` | Demo queries: holdings, trade history, leaderboard, activity per stock, holds vs. trades check, users with no trades |
+| `sql/constraint_tests.sql` | 10 statements that break a rule and must be rejected (Goal 3 evidence); not run by CI |
 | `docs/erd.md`, `docs/schema.svg` | ER diagram and its explanation |
 | `docs/requirements.md` | Requirements (in progress) |
 | `docs/normalization.md` | Functional dependencies and BCNF check (in progress) |
