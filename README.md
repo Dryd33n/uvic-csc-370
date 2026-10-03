@@ -72,4 +72,4 @@ To check, run the `SELECT` from step 5 in `mysql -u root -p stock_trading`. You 
 
 ## AI use
 
-TODO (team): which parts were written with AI help, which the team wrote, and how we checked the AI-written parts. Keep this consistent with `AI_USE.md`.
+See `AI_USE.md`.
