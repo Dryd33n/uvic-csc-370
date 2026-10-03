@@ -10,7 +10,7 @@ This project used generative AI tools from Anthropic: Claude (claude.ai) and Cla
 | `README.md` | Drafted the run instructions and file map | Reviewed the steps and wrote the AI citation section ourselves |
 | `sprints/goal-d-draft.md` | Drafted the next-sprint plan for goal D, including an SQL sketch | Chose the goal, reviewed the reasoning, will fill in the competency, and will do the actual 4NF work next sprint |
 | `docs/lossless-join.md`, `sql/lossless_check.sql` | Helped draft the goal B write-up and the join-back SQL | Chose the three decompositions and the FDs, checked every chase step by hand, ran the SQL, picked the competency |
-| `docs/dependency-preservation.md` | Helped draft the goal C per-FD list and the BCNF vs 3NF watchlist example | Picked the FDs and the one-list rule, ran the SQL sketch, will decide BCNF vs 3NF and fill in the competency |
+| `docs/dependency-preservation.md` | Helped draft the goal C per-FD list and the BCNF vs 3NF watchlist example | Picked the FDs and the one-list rule, ran the SQL sketch, picked the competency, will decide BCNF vs 3NF |
 
 Our design work was done by the team without AI: the requirements, the ERD, the relational schema (`ddl.sql`), and the normalization analysis.
 
@@ -44,7 +44,7 @@ Our design work was done by the team without AI: the requirements, the ERD, the 
 
 - **What AI did:** Claude Code helped draft the per-FD list (which table and key enforces each FD) and the watchlist example where BCNF and 3NF differ, including an SQL sketch.
 - **How we checked it:** We checked each FD against our requirements, confirmed that user_id, ticker → watchlist_id is lost in the BCNF split, and ran the SQL sketch on MySQL 8: the BCNF tables accept the duplicate and the 3NF table rejects it with error 1062.
-- **Why this does not undermine our learning:** The draft is a starting point. The goal C owner makes the BCNF vs 3NF decision, fills in the competency, and redoes the list once goal A's minimal cover is done.
+- **Why this does not undermine our learning:** The draft is a starting point. The goal C owner makes the BCNF vs 3NF decision and redoes the list once goal A's minimal cover is done.
 
 ## Our commitment
 

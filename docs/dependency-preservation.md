@@ -1,12 +1,12 @@
 # Goal C: dependency preservation (draft)
 
-Owner: C. First draft started by Shubin (B) so C has something to build on. The FD list and the BCNF vs 3NF example are done; the competency and a final decision are still open (see the end).
+Owner: C. First draft started by Shubin (B) so C has something to build on. The FD list, the BCNF vs 3NF example and the competency are done; the final decision is still open (see the end).
 
 | | |
 | --- | --- |
 | **Limitation** | We picked BCNF without checking whether any FD got lost when we split tables. |
 | **Goal** | For every FD, find the table that enforces it (or say it's lost). Find a case in our design where BCNF and 3NF give different answers and pick one with a reason. |
-| **Competency** | _TODO (C): exact wording from Brightspace_ |
+| **Competency** | Data Modelling, Level 3: "Applies alternative normal forms when they better suit the application requirements." Choosing between BCNF and 3NF for the watchlist rule is exactly that: 3NF is the alternative, and the per-FD list is what tells us whether it suits better. |
 | **Objective measure** | A per-FD list with the enforcing table for each one, 0 FDs left unaccounted for, and the design choice justified from that list. |
 | **Artifact** | `docs/dependency-preservation.md` (this file) |
 
@@ -88,7 +88,7 @@ The catch with the 3NF table is the other direction: watchlist_id → user_id is
 
 ## Still to do (C)
 
-- Copy the competency wording from Brightspace.
+- Competency is filled in with the same Level 3 wording goal D uses. Double check on Brightspace that there isn't a more specific module-level one.
 - Decide: keep BCNF and add a trigger for the one-list rule, or go 3NF. My vote is BCNF + trigger, since the rule only matters on insert into watchlist_item and the 3NF version can corrupt ownership, which is worse. But it's your call.
 - Ask the team whether we actually want the one-list rule. If not, the example still shows the difference, it just doesn't change the schema.
 - Re-check the per-FD list once goal A's minimal cover is done and the 10 tables are in the DDL.
