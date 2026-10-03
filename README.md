@@ -6,7 +6,7 @@ All data in this repo is fictional.
 
 ## Current state
 
-The schema is an early draft: 4 tables in `sql/ddl.sql` (`user`, `stock`, `transaction`, `holds`) with no keys or constraints yet. Portfolios, limit orders, watchlists and the leaderboard are planned for later sprints.
+The schema has 4 tables in `sql/ddl.sql` (`user`, `stock`, `transaction`, `holds`) with primary keys, foreign keys, `NOT NULL`, a `UNIQUE` email and `CHECK` constraints on quantities and prices. `sql/constraint_tests.sql` shows each of these rejecting invalid data. Portfolios, limit orders, watchlists and the leaderboard are planned for later sprints.
 
 ## Run it
 
