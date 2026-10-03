@@ -18,32 +18,24 @@ You need MySQL 8.0. The steps run `sql/ddl.sql`, `sql/seed.sql` and `sql/queries
 
 Needs [Docker Desktop](https://www.docker.com/products/docker-desktop/) running. Open a terminal in the repo root and run these one at a time. They are the same on Windows (PowerShell or Command Prompt), macOS and Linux. On Windows, don't use Git Bash: it rewrites the `/sql` paths.
 
-1. Start an empty MySQL 8.0 server:
+1. Start MySQL 8.0, then create the schema and load the sample data (`docker-compose.yml` runs `sql/ddl.sql` and then `sql/seed.sql`). This returns when the database is ready, after about 20-60 seconds; the first run also downloads the image.
    ```
-   docker run -d --name papertrade-db -e MYSQL_ROOT_PASSWORD=rootpassword mysql:8.0
+   docker compose up -d --wait
    ```
-2. Copy the `sql` folder into it:
+2. Run the queries:
    ```
-   docker cp sql/. papertrade-db:/sql
+   docker compose exec db sh -c "mysql -uroot -prootpassword -t stock_trading < /sql/queries.sql"
    ```
-3. Wait until the server is ready. This returns after about 10-60 seconds; the first start takes longest.
+3. Check the row counts:
    ```
-   docker exec papertrade-db sh -c "until mysqladmin ping -h127.0.0.1 --silent; do sleep 2; done"
-   ```
-4. Create the schema, load the sample data, and run the queries:
-   ```
-   docker exec papertrade-db sh -c "mysql -uroot -prootpassword < /sql/ddl.sql"
-   docker exec papertrade-db sh -c "mysql -uroot -prootpassword < /sql/seed.sql"
-   docker exec papertrade-db sh -c "mysql -uroot -prootpassword < /sql/queries.sql"
-   ```
-5. Check the row counts:
-   ```
-   docker exec papertrade-db mysql -uroot -prootpassword -t stock_trading -e "SELECT 'user' AS tbl, COUNT(*) AS n FROM user UNION ALL SELECT 'stock', COUNT(*) FROM stock UNION ALL SELECT 'transaction', COUNT(*) FROM transaction UNION ALL SELECT 'holds', COUNT(*) FROM holds"
+   docker compose exec db mysql -uroot -prootpassword -t stock_trading -e "SELECT 'user' AS tbl, COUNT(*) AS n FROM user UNION ALL SELECT 'stock', COUNT(*) FROM stock UNION ALL SELECT 'transaction', COUNT(*) FROM transaction UNION ALL SELECT 'holds', COUNT(*) FROM holds"
    ```
 
-Steps 4 and 5 print only the warning `Using a password on the command line interface can be insecure`, which is expected. Step 5 should show `user` 9, `stock` 14, `transaction` 82, `holds` 22.
+Steps 2 and 3 print the warning `Using a password on the command line interface can be insecure`, which is expected. Step 3 should show `user` 9, `stock` 14, `transaction` 82, `holds` 22.
 
-After you edit a file in `sql/`, repeat step 2, then steps 4 and 5. To delete the database when you're done, run `docker rm -f papertrade-db`.
+- **Step 1 fails** (for example `container papertrade-db exited`): an SQL file has an error. Run `docker compose logs db` to find it, fix the file, then reset as below.
+- **After you edit `sql/ddl.sql` or `sql/seed.sql`:** the files only load when the database is first created. Run `docker compose down -v` to delete it, then step 1 again. Edits to `queries.sql` need no reset.
+- **When you're done:** `docker compose down -v` deletes the container and its data.
 
 ### Option B: a local MySQL 8.0 server (macOS / Linux)
 
@@ -65,7 +57,8 @@ To check, run the `SELECT` from step 5 in `mysql -u root -p stock_trading`. You 
 | `docs/erd.md`, `docs/schema.svg` | ER diagram and its explanation |
 | `docs/requirements.md` | Requirements (in progress) |
 | `docs/normalization.md` | Functional dependencies and BCNF check (in progress) |
-| `sprints/` | Sprint reports |
+| `docker-compose.yml` | MySQL 8.0 with `ddl.sql` and `seed.sql` loaded (see Run it) |
+| `sprints/` | Sprint reports and the next-sprint goal D draft |
 | `.github/workflows/main.yml` | CI: runs the three SQL files on MySQL 8.0 on every push to `main` |
 
 ## AI use
