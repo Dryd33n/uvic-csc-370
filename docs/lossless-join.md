@@ -8,7 +8,7 @@ Right now we split tables apart because it "looks right" for BCNF, but we never 
 | --- | --- |
 | **Limitation** | Our decompositions are not proven lossless. We just assumed it. |
 | **Goal** | Chase test on stock/exchange, orders/trade and watchlist/watchlist_item. |
-| **Competency** | _TODO: exact wording from Brightspace_ |
+| **Competency** | Data Modelling, Level 2: "Eliminates data anomalies with effective normalisation." A decomposition that isn't lossless creates spurious tuples, which is its own kind of anomaly, so proving lossless join is part of normalising properly and not just splitting tables. |
 | **Objective measure** | Each final tableau has a row of all distinguished variables (all `a`s). The SQL join-back returns exactly the original rows: same count, 0 missing, 0 extra. |
 | **Artifact** | `docs/lossless-join.md` (this file) and `sql/lossless_check.sql` |
 
@@ -167,4 +167,4 @@ The 3 extra rows in the bad split are all AAPL: trades 1 and 2 (order 101) get p
 - The SQL check only shows the join is lossless for *this* sample data. It can't prove it for every instance. The chase is the actual proof, the SQL is just evidence that matches it.
 - The tables here are from our planned schema, not the current `sql/ddl.sql` (which only has 4 tables and no exchange, orders, trade or watchlist yet). When those tables go into the DDL next sprint, the column names here need to match.
 - The FDs come from our requirements. If goal A (formal FD analysis) finds a different minimal cover, I'll redo the chase with those FDs.
-- Competency wording still needs to be copied from Brightspace.
+- The competency wording is the same Level 2 quote we used for goal D. Still need to double check on Brightspace whether there's a more specific module-level one for lossless decomposition.

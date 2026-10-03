@@ -9,7 +9,7 @@ This project used generative AI tools from Anthropic: Claude (claude.ai) and Cla
 | Seed data (`seed.sql`) | Generated the sample rows | Defined the schema the data had to fit; reviewed and verified the data |
 | `README.md` | Drafted the run instructions and file map | Reviewed the steps and wrote the AI citation section ourselves |
 | `sprints/goal-d-draft.md` | Drafted the next-sprint plan for goal D, including an SQL sketch | Chose the goal, reviewed the reasoning, will fill in the competency, and will do the actual 4NF work next sprint |
-| `docs/lossless-join.md`, `sql/lossless_check.sql` | Helped draft the goal B write-up and the join-back SQL | Chose the three decompositions and the FDs, checked every chase step by hand, ran the SQL, will fill in the competency |
+| `docs/lossless-join.md`, `sql/lossless_check.sql` | Helped draft the goal B write-up and the join-back SQL | Chose the three decompositions and the FDs, checked every chase step by hand, ran the SQL, picked the competency |
 
 Our design work was done by the team without AI: the requirements, the ERD, the relational schema (`ddl.sql`), and the normalization analysis.
 
@@ -37,7 +37,7 @@ Our design work was done by the team without AI: the requirements, the ERD, the 
 
 - **What AI did:** Claude Code helped draft the goal B write-up (chase tests on stock/exchange, orders/trade and watchlist/watchlist_item, plus one deliberately lossy split) and the SQL script that joins each decomposition back and compares it with the original relation.
 - **How we checked it:** The goal B owner redid each chase tableau by hand, checked it against the binary shortcut (R1 ∩ R2 → R1 or R2), and ran `sql/lossless_check.sql` on MySQL 8: the three real decompositions pass and the bad split gives 3 spurious rows.
-- **Why this does not undermine our learning:** The goal B owner can explain why each chase ends with a row of all distinguished variables, why the ticker split is lossy, and why open orders missing from the join are not lost data. The competency mapping is filled in by the team from Brightspace.
+- **Why this does not undermine our learning:** The goal B owner can explain why each chase ends with a row of all distinguished variables, why the ticker split is lossy, and why open orders missing from the join are not lost data. The competency mapping was picked by the team from the Brightspace wording.
 
 ## Our commitment
 
