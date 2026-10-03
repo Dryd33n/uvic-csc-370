@@ -1,0 +1,22 @@
+# MySQL 8.0 (same image as CI) with the schema and sample data loaded.
+# Start:  docker compose up -d --wait
+# Reset:  docker compose down -v   (then start again to reload sql/)
+services:
+  db:
+    image: mysql:8.0
+    container_name: papertrade-db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+    volumes:
+      # Run once, in this order, when the database is first created
+      - ./sql/ddl.sql:/docker-entrypoint-initdb.d/1-ddl.sql:ro
+      - ./sql/seed.sql:/docker-entrypoint-initdb.d/2-seed.sql:ro
+      # All SQL files, for running queries.sql by hand
+      - ./sql:/sql:ro
+    healthcheck:
+      # Uses TCP, which only answers after the init scripts above have finished
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
+      start_period: 180s
