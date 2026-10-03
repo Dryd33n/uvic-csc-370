@@ -9,6 +9,7 @@ This project used generative AI tools from Anthropic: Claude (claude.ai) and Cla
 | Seed data (`seed.sql`) | Generated the sample rows | Defined the schema the data had to fit; reviewed and verified the data |
 | `README.md` | Drafted the run instructions and file map | Reviewed the steps and wrote the AI citation section ourselves |
 | `sprints/goal-d-draft.md` | Drafted the next-sprint plan for goal D, including an SQL sketch | Chose the goal, reviewed the reasoning, will fill in the competency, and will do the actual 4NF work next sprint |
+| `docs/lossless-join.md`, `sql/lossless_check.sql` | Helped draft the goal B write-up and the join-back SQL | Chose the three decompositions and the FDs, checked every chase step by hand, ran the SQL, will fill in the competency |
 
 Our design work was done by the team without AI: the requirements, the ERD, the relational schema (`ddl.sql`), and the normalization analysis.
 
@@ -31,6 +32,12 @@ Our design work was done by the team without AI: the requirements, the ERD, the 
 - **What AI did:** Claude Code drafted the plan for goal D (multivalued dependencies and 4NF) for the next sprint. The draft follows our plan structure (limitation, goal, competency, objective measure, artifact). It includes an SQL sketch showing that adding one tag takes 3 rows before the 4NF decomposition and 1 row after, and that joining the tables back recovers the original rows. The SQL was tested on MySQL 8.0.
 - **How we checked it:** The team member who owns goal D reviewed the draft and can explain the MVD `ticker ↠ tag | theme`, why the combined table is in BCNF but not in 4NF, and why the decomposition is lossless.
 - **Why this does not undermine our learning:** The draft is a plan, not completed work. The 4NF analysis itself, the new tables in the DDL and the demo SQL will be done by the team next sprint, and will be presented as evidence then. The competency mapping uses the exact wording from Brightspace, which the team fills in.
+
+### Goal B draft (`docs/lossless-join.md`, `sql/lossless_check.sql`)
+
+- **What AI did:** Claude Code helped draft the goal B write-up (chase tests on stock/exchange, orders/trade and watchlist/watchlist_item, plus one deliberately lossy split) and the SQL script that joins each decomposition back and compares it with the original relation.
+- **How we checked it:** The goal B owner redid each chase tableau by hand, checked it against the binary shortcut (R1 ∩ R2 → R1 or R2), and ran `sql/lossless_check.sql` on MySQL 8: the three real decompositions pass and the bad split gives 3 spurious rows.
+- **Why this does not undermine our learning:** The goal B owner can explain why each chase ends with a row of all distinguished variables, why the ticker split is lossy, and why open orders missing from the join are not lost data. The competency mapping is filled in by the team from Brightspace.
 
 ## Our commitment
 

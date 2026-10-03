@@ -57,6 +57,7 @@ To check, run the `SELECT` from step 5 in `mysql -u root -p stock_trading`. You 
 | `docs/erd.md`, `docs/schema.svg` | ER diagram and its explanation |
 | `docs/requirements.md` | Requirements (in progress) |
 | `docs/normalization.md` | Functional dependencies and BCNF check (in progress) |
+| `docs/lossless-join.md`, `sql/lossless_check.sql` | Next-sprint goal B draft: chase tests and the SQL join-back check (runs in its own throwaway database) |
 | `docker-compose.yml` | MySQL 8.0 with `ddl.sql` and `seed.sql` loaded (see Run it) |
 | `sprints/` | Sprint reports and the next-sprint goal D draft |
 | `.github/workflows/main.yml` | CI: runs the three SQL files on MySQL 8.0 on every push to `main` |
