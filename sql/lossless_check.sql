@@ -58,7 +58,7 @@ CREATE TABLE trade  AS SELECT DISTINCT trade_id, order_id, fill_qty, fill_price 
 CREATE TABLE r_watchlist (
     watchlist_id   INT,
     user_id        INT,
-    watchlist_name VARCHAR(50),
+    name           VARCHAR(50),
     ticker         VARCHAR(10),
     added_at       DATETIME
 );
@@ -69,7 +69,7 @@ INSERT INTO r_watchlist VALUES
     (3, 4, 'banks',     'JPM',  '2026-09-25 11:45:00'),
     (3, 4, 'banks',     'RY',   '2026-09-25 11:46:00');
 
-CREATE TABLE watchlist      AS SELECT DISTINCT watchlist_id, user_id, watchlist_name FROM r_watchlist;
+CREATE TABLE watchlist      AS SELECT DISTINCT watchlist_id, user_id, name FROM r_watchlist;
 CREATE TABLE watchlist_item AS SELECT DISTINCT watchlist_id, ticker, added_at FROM r_watchlist;
 
 -- -----------------------------------------------------
@@ -92,7 +92,7 @@ CREATE VIEW j_trade AS
     FROM orders o JOIN trade t ON o.order_id = t.order_id;
 
 CREATE VIEW j_watchlist AS
-    SELECT w.watchlist_id, w.user_id, w.watchlist_name, i.ticker, i.added_at
+    SELECT w.watchlist_id, w.user_id, w.name, i.ticker, i.added_at
     FROM watchlist w JOIN watchlist_item i ON w.watchlist_id = i.watchlist_id;
 
 CREATE VIEW j_bad AS
