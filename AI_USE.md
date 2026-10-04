@@ -4,14 +4,14 @@ This project used generative AI tools from Anthropic: Claude (claude.ai) and Cla
 
 ## Summary
 
-| Part of the project                               | AI's role                                                                    | Our role                                                                                                              |
-| ------------------------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Seed data (`seed.sql`)                            | Generated the sample rows                                                    | Defined the schema the data had to fit; reviewed and verified the data                                                |
-| `README.md`                                       | Drafted the run instructions and file map                                    | Reviewed the steps and wrote the AI citation section ourselves                                                        |
-| `sprints/goal-d-draft.md`                         | Drafted the next-sprint plan for goal D, including an SQL sketch             | Chose the goal, reviewed the reasoning, will fill in the competency, and will do the actual 4NF work next sprint      |
-| `docs/lossless-join.md`, `sql/lossless_check.sql` | Helped draft the goal B write-up and the join-back SQL                       | Chose the three decompositions and the FDs, checked every chase step by hand, ran the SQL, picked the competency      |
-| `docs/dependency-preservation.md`                 | Helped draft the goal C per-FD list and the BCNF vs 3NF watchlist example    | Picked the FDs and the one-list rule, ran the SQL sketch, picked the competency, will decide BCNF vs 3NF              |
-| `docs/normalization.md`                           | Drafted the per-table FD list and BCNF check for the planned 10-table schema | Chose the FDs from our requirements, verified every determinant is a superkey, will redo after goal A's minimal cover |
+| Part of the project                               | AI's role                                                                 | Our role                                                                                                              |
+| ------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Seed data (`seed.sql`)                            | Generated the sample rows                                                 | Defined the schema the data had to fit; reviewed and verified the data                                                |
+| `README.md`                                       | Drafted the run instructions and file map                                 | Reviewed the steps and wrote the AI citation section ourselves                                                        |
+| `sprints/goal-d-draft.md`                         | Drafted the next-sprint plan for goal D, including an SQL sketch          | Chose the goal, reviewed the reasoning, will fill in the competency, and will do the actual 4NF work next sprint      |
+| `docs/lossless-join.md`, `sql/lossless_check.sql` | Helped draft the goal B write-up and the join-back SQL                    | Chose the three decompositions and the FDs, checked every chase step by hand, ran the SQL, picked the competency      |
+| `docs/dependency-preservation.md`                 | Helped draft the goal C per-FD list and the BCNF vs 3NF watchlist example | Picked the FDs and the one-list rule, ran the SQL sketch, picked the competency, will decide BCNF vs 3NF              |
+| `docs/normalization.md`                           | Drafted the per-table FD list and BCNF check for the 4 implemented tables | Chose the FDs from our requirements, verified every determinant is a superkey, will redo after goal A's minimal cover |
 
 Our design work was done by the team without AI: the requirements, the ERD, the relational schema (`ddl.sql`).
 
@@ -49,8 +49,8 @@ Our design work was done by the team without AI: the requirements, the ERD, the 
 
 ### Normalization doc (`docs/normalization.md`)
 
-- **What AI did:** Muse drafted the per-table FD list, candidate keys and BCNF check for the planned 10-table schema, plus the "chose not to store" cases (exchange_name in stock, portfolio_id/ticker in trade, total_value and rank in portfolio_snapshot) and the known-limitations section.
-- **How we checked it:** The goal 2 owner verified each FD against our requirements, checked that every determinant is a superkey, and confirmed the FDs match the ones used in the lossless-join and dependency-preservation docs. The doc will be redone if goal A's minimal cover comes out different.
+- **What AI did:** Muse drafted the per-table FD list, candidate keys and BCNF check for the 4 tables in `sql/ddl.sql` (user, stock, transaction, holds), plus the "chose not to store" case (total position value in holds) and the known-limitations section.
+- **How we checked it:** The goal 2 owner verified each FD and key against `sql/ddl.sql`, checked that every determinant is a superkey, and confirmed the doc matches the implemented schema. The doc will be redone if goal A's minimal cover comes out different.
 - **Why this does not undermine our learning:** The FDs and the schema design are the team's own; the draft only organized them into the per-table BCNF check. The goal 2 owner can explain every table, FD and design decision, and presents this as evidence in the video.
 
 ## Our commitment
