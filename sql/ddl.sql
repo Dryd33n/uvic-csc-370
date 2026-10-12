@@ -11,8 +11,6 @@ CREATE TABLE `user`
     `user_id` INT          NOT NULL,
     `name`    VARCHAR(100) NOT NULL,
     `email`   VARCHAR(255) NOT NULL,
-    CONSTRAINT `pk_user` PRIMARY KEY (`user_id`),
-    CONSTRAINT `uq_user_email` UNIQUE (`email`)
 );
 
 -- -----------------------------------------------------
@@ -24,7 +22,6 @@ CREATE TABLE `stock` (
     `opening_price` DECIMAL(12, 4) NOT NULL,
     `closing_price` DECIMAL(12, 4) NOT NULL,
     `exchange` VARCHAR(20) NOT NULL,
-    CONSTRAINT `pk_stock` PRIMARY KEY (`ticker`)
 );
 
 -- ----------------------------------------------------
@@ -40,11 +37,6 @@ CREATE TABLE `transaction` (
     `quantity` INT NOT NULL,
     `price` DECIMAL(12, 4) NOT NULL,
     `time` DATETIME NOT NULL,
-    CONSTRAINT `pk_transaction` PRIMARY KEY (`transaction_id`),
-    CONSTRAINT `fk_transaction_user` FOREIGN KEY (`user_id`) REFERENCES `user` (`user_id`),
-    CONSTRAINT `fk_transaction_stock` FOREIGN KEY (`ticker`) REFERENCES `stock` (`ticker`),
-    CONSTRAINT `chk_transaction_quantity` CHECK (`quantity` > 0),
-    CONSTRAINT `chk_transaction_price` CHECK (`price` > 0)
 );
 
 -- -----------------------------------------------------
@@ -56,9 +48,4 @@ CREATE TABLE `holds` (
     `ticker` VARCHAR(10) NOT NULL,
     `quantity` INT NOT NULL,
     `average_price` DECIMAL(12, 4) NOT NULL,
-    CONSTRAINT `pk_holds` PRIMARY KEY (`user_id`, `ticker`),
-    CONSTRAINT `fk_holds_user` FOREIGN KEY (`user_id`) REFERENCES `user` (`user_id`),
-    CONSTRAINT `fk_holds_stock` FOREIGN KEY (`ticker`) REFERENCES `stock` (`ticker`),
-    CONSTRAINT `chk_holds_quantity` CHECK (`quantity` > 0),
-    CONSTRAINT `chk_holds_average_price` CHECK (`average_price` > 0)
 );
