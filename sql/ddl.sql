@@ -10,7 +10,7 @@ CREATE TABLE `user`
 (
     `user_id` INT          NOT NULL,
     `name`    VARCHAR(100) NOT NULL,
-    `email`   VARCHAR(255) NOT NULL,
+    `email`   VARCHAR(255) NOT NULL
 );
 
 -- -----------------------------------------------------
@@ -21,7 +21,7 @@ CREATE TABLE `stock` (
     `company_name` VARCHAR(100) NOT NULL,
     `opening_price` DECIMAL(12, 4) NOT NULL,
     `closing_price` DECIMAL(12, 4) NOT NULL,
-    `exchange` VARCHAR(20) NOT NULL,
+    `exchange` VARCHAR(20) NOT NULL
 );
 
 -- ----------------------------------------------------
@@ -36,7 +36,7 @@ CREATE TABLE `transaction` (
     `transaction_type` ENUM('buy', 'sell') NOT NULL,
     `quantity` INT NOT NULL,
     `price` DECIMAL(12, 4) NOT NULL,
-    `time` DATETIME NOT NULL,
+    `time` DATETIME NOT NULL
 );
 
 -- -----------------------------------------------------
@@ -47,5 +47,5 @@ CREATE TABLE `holds` (
     `user_id` INT NOT NULL,
     `ticker` VARCHAR(10) NOT NULL,
     `quantity` INT NOT NULL,
-    `average_price` DECIMAL(12, 4) NOT NULL,
+    `average_price` DECIMAL(12, 4) NOT NULL
 );
