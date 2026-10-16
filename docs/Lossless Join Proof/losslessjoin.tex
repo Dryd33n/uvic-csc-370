@@ -1,0 +1,157 @@
+\documentclass{article}
+\usepackage[legalpaper, portrait, margin=0.5in]{geometry}
+\usepackage {amsmath}
+\usepackage {amssymb}
+\usepackage {enumerate}
+
+\title{CSC370 PaperTrade, Lossless Join Proof}
+\author{Dryden Bryson}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\newpage
+Since our database is already in BCNF we need not prove a lossless join, but for the sake of proving course level competencies, we will proceed with a hypothetical flat relation as follows:
+
+$$\text{UserHoldings}(\text{user\_id, name, email, ticker, quantity, average\_price})$$
+
+With the complete set of attributes being:
+
+$$
+C=\{\text{user\_id, name, email, ticker, quantity, average\_price}\}
+$$
+
+We can now assert the following functional dependencies, ($F$): 
+\begin{itemize}
+    \item $FD_{1}$ : $\text{user\_id} \rightarrow \text{name, email}$
+    \item $FD_{2}$ : user\_id, ticker $\rightarrow$ quantity, average\_price
+\end{itemize}
+
+We can now derive the following candidate key by computing the attribute closures:
+
+\begin{enumerate}
+  \item \textbf{Closure of } $\{\text{user\_id}\}$:
+  \[
+    \{\text{user\_id}\}^+ = \{\text{user\_id, name, email}\} \neq C
+  \]
+  Since the closure does not contain all attributes of $C$, $\{\text{user\_id}\}$ is not a superkey.
+
+  \item \textbf{Closure of } $\{\text{ticker}\}$:
+  \[
+    \{\text{ticker}\}^+ = \{\text{ticker}\} \neq C
+  \]
+  Since the closure does not contain all attributes of $C$, $\{\text{ticker}\}$ is not a superkey.
+
+  \item \textbf{Closure of} $\{\text{user\_id, ticker}\}$:
+  \begin{align*}
+    \{\text{user\_id, ticker}\}^+
+      &\supseteq \{\text{user\_id, ticker}\} && \text{(by triviality)} \\
+      &\supseteq \{\text{user\_id, ticker, name, email}\} && \text{(applying } FD_1\text{)} \\
+      &\supseteq \{\text{user\_id, ticker, name, email, quantity, average\_price}\} && \text{(applying } FD_2\text{)} \\
+      &= C
+  \end{align*}
+\end{enumerate}
+
+Because $\{\text{user\_id, ticker}\}^+ = C$ and no proper subset of $\{\text{user\_id, ticker}\}$ determines all attributes in $C$, $\{\text{user\_id, ticker}\}$ is the minimal candidate key for $\text{UserHoldings}$.
+
+\subsection*{BCNF Violation Analysis}
+
+A relation $R$ with attribute set $C$ is in \textbf{Boyce-Codd Normal Form (BCNF)} if and only if for every non-trivial functional dependency $X \rightarrow Y$, the antecedent $X$ is a superkey of $R$ ($X^+ = C$).
+
+Evaluating $FD_1: \text{user\_id} \rightarrow \text{name, email}$:
+\begin{itemize}
+  \item \textbf{Antecedent ($X$):} $\{\text{user\_id}\}$
+  \item \textbf{Closure ($X^+$):} $\{\text{user\_id}\}^+ = \{\text{user\_id, name, email}\} \neq C$
+\end{itemize}
+
+Since $\{\text{user\_id}\}$ is not a superkey for $\text{UserHoldings}$, $FD_1$ violates BCNF, causing data redundancy as well as update, insertion, and deletion anomalies.
+
+\subsection*{BCNF Decomposition Algorithm}
+
+We apply the formal BCNF decomposition algorithm ($\text{BCNF\_Decomp}$) to eliminate the violation:
+\begin{enumerate}
+  \item Select the BCNF violation $FD_1: \text{user\_id} \rightarrow \text{name, email}$ with antecedent $X = \{\text{user\_id}\}$.
+  \item Compute the closure $X^+ =
+\end{enumerate}
+
+\begin{enumerate}
+  \item \textbf{Closure of } $\{\text{user\_id}\}$:
+  \[
+    \{\text{user\_id}\}^+ = \{\text{user\_id, name, email}\} \neq C
+  \]
+  Since $\{\text{user\_id}\}^+ \neq C$, $\{\text{user\_id}\}$ is not a superkey.
+
+  \item \textbf{Closure of } $\{\text{ticker}\}$:
+  \[
+    \{\text{ticker}\}^+ = \{\text{ticker}\} \neq C
+  \]
+  Since $\{\text{ticker}\}^+ \neq C$, $\{\text{ticker}\}$ is not a superkey.
+
+  \item \textbf{Closure of Composite Set } $\{\text{user\_id, ticker}\}$:
+  \begin{align*}
+    \{\text{user\_id, ticker}\}^+
+      &\supseteq \{\text{user\_id, ticker}\} && \text{(by triviality)} \\
+      &\supseteq \{\text{user\_id, ticker, name, email}\} && \text{(applying } FD_1\text{)} \\
+      &\supseteq \{\text{user\_id, ticker, name, email, quantity, average\_price}\} && \text{(applying } FD_2\text{)} \\
+      &= C
+  \end{align*}
+\end{enumerate}
+
+Because $\{\text{user\_id, ticker}\}^+ = C$ and no proper subset determines all attributes in $C$, $\{\text{user\_id, ticker}\}$ is the minimal candidate key for $\text{UserHoldings}$.
+
+\subsection*{BCNF Violation Analysis}
+
+A relation $R$ with attribute set $C$ is in \textbf{Boyce-Codd Normal Form (BCNF)} if and only if for every non-trivial functional dependency $X \rightarrow Y$, the antecedent $X$ is a superkey of $R$ ($X^+ = C$).
+
+Evaluating $FD_1: \text{user\_id} \rightarrow \text{name, email}$:
+\begin{itemize}
+  \item \textbf{Antecedent ($X$):} $\{\text{user\_id}\}$
+  \item \textbf{Closure ($X^+$):} $\{\text{user\_id}\}^+ = \{\text{user\_id, name, email}\} \neq C$
+\end{itemize}
+
+Since $\{\text{user\_id}\}$ is not a superkey for $\text{UserHoldings}$, $FD_1$ represents a \textbf{BCNF violation}, introducing data redundancy as well as update, insertion, and deletion anomalies.
+
+\subsection*{BCNF Decomposition Algorithm}
+
+We apply the formal BCNF decomposition algorithm ($\text{BCNF\_Decomp}$) to eliminate the violation:
+\begin{enumerate}
+  \item Select the BCNF violation $FD_1: \text{user\_id} \rightarrow \text{name, email}$ with antecedent $X = \{\text{user\_id}\}$.
+  \item Compute the closure $X^+ = \{\text{user\_id}\}^+ = \{\text{user\_id, name, email}\}$.
+  \item Form relation $R_1 := X^+$:
+  \[
+    R_1 = \{\text{user\_id, name, email}\} \implies \text{User}(\text{user\_id, name, email})
+  \]
+  \item Form relation $R_2 := (C \setminus X^+) \cup X$:
+  \[
+    R_2 = \{\text{user\_id, ticker, quantity, average\_price}\} \implies \text{Holds}(\text{user\_id, ticker, quantity, average\_price})
+  \]
+\end{enumerate}
+
+Both sub-relations $R_1$ and $R_2$ now satisfy BCNF because their respective determinants are superkeys within their relation schemas.
+
+\subsection*{Lossless Join Proof}
+
+According to the \textbf{Lossless Join Theorem}, a decomposition of relation $R$ into sub-relations $R_1$ and $R_2$ is \textbf{lossless} if and only if the shared attributes $(R_1 \cap R_2)$ form a superkey for $R_1$ or $R_2$:
+\[
+  (R_1 \cap R_2) \rightarrow R_1 \quad \text{or} \quad (R_1 \cap R_2) \rightarrow R_2 \in F^+
+\]
+
+\begin{enumerate}
+  \item \textbf{Attribute Intersection:}
+  \[
+    R_1 \cap R_2 = \{\text{user\_id, name, email}\} \cap \{\text{user\_id, ticker, quantity, average\_price}\} = \{\text{user\_id}\}
+  \]
+  \item \textbf{Closure of Shared Attributes:}
+  \[
+    \{\text{user\_id}\}^+ = \{\text{user\_id, name, email}\} = R_1
+  \]
+    \item \textbf{Superkey Verification:} Since $\{\text{user\_id}\}^+ = R_1$, the shared attribute set $\{\text{user\_id}\}$ forms a superkey for $R_1$ ($\text{User}$).
+\end{enumerate}
+
+\textbf{Conclusion:} Because $(R_1 \cap R_2) \rightarrow R_1$, the decomposition of $\text{UserHoldings}$ into $R_1$ ($\text{User}$) and $R_2$ ($\text{Holds}$) satisfies the Lossless Join Theorem. Rejoining the relations via natural join is mathematically proven to be lossless:
+\[
+  \pi_{R_1}(\text{UserHoldings}) \bowtie \pi_{R_2}(\text{UserHoldings}) = \text{UserHoldings}
+\]
+
+\end{document}
