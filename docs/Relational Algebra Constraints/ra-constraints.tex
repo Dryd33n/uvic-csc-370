@@ -1,0 +1,137 @@
+\documentclass{article}
+\usepackage[legalpaper, portrait, margin=0.5in]{geometry}
+\usepackage{amsmath, amssymb, amsthm} 
+\usepackage{hyperref} 
+\usepackage{enumitem} 
+\usepackage{microtype} 
+\hypersetup{ colorlinks=true, linkcolor=blue, urlcolor=blue }
+
+\title{CSC 370 PaperTrade, Relation Algebra Constraints}
+\author{Dryden Bryson}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\newpage
+
+\section*{Overview}
+
+This document formalizes the domain, primary key, and referential integrity (foreign key) constraints for the \texttt{stock\_trading} database using Relational Algebra expressions.
+
+\section{Referential Integrity Constraints (Foreign Keys)}
+
+Referential integrity constraints prevent orphaned records by ensuring that foreign key values in child relations correspond to existing primary keys in parent relations. In relational algebra, these are expressed as subset inclusions ($\pi_{FK}(R_1) \subseteq \pi_{PK}(R_2)$) or set difference empty-set equations ($\pi_{FK}(R_1) \setminus \pi_{PK}(R_2) = \emptyset$).
+
+\subsection{\texttt{transaction.user\_id} \texorpdfstring{$\rightarrow$}{->} \texttt{user.user\_id}}
+
+Every transaction must belong to a registered user.
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Subset Inclusion:}
+  \[
+    \pi_{\text{user\_id}}(\text{Transaction}) \subseteq \pi_{\text{user\_id}}(\text{User})
+  \]
+  \item \textbf{Set Difference (Empty-Set):}
+  \[
+    \pi_{\text{user\_id}}(\text{Transaction}) \setminus \pi_{\text{user\_id}}(\text{User}) = \emptyset
+  \]
+\end{itemize}
+
+\subsection{\texttt{transaction.ticker} \texorpdfstring{$\rightarrow$}{->} \texttt{stock.ticker}}
+
+Every transaction must reference an existing stock ticker.
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Subset Inclusion:}
+  \[
+    \pi_{\text{ticker}}(\text{Transaction}) \subseteq \pi_{\text{ticker}}(\text{Stock})
+  \]
+  \item \textbf{Set Difference (Empty-Set):}
+  \[
+    \pi_{\text{ticker}}(\text{Transaction}) \setminus \pi_{\text{ticker}}(\text{Stock}) = \emptyset
+  \]
+\end{itemize}
+
+\subsection{\texttt{holds.user\_id} \texorpdfstring{$\rightarrow$}{->} \texttt{user.user\_id}}
+
+Every stock holding record must reference a valid user.
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Subset Inclusion:}
+  \[
+    \pi_{\text{user\_id}}(\text{Holds}) \subseteq \pi_{\text{user\_id}}(\text{User})
+  \]
+\end{itemize}
+
+\subsection{\texttt{holds.ticker} \texorpdfstring{$\rightarrow$}{->} \texttt{stock.ticker}}
+
+Every stock holding record must reference a valid stock ticker.
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Subset Inclusion:}
+  \[
+    \pi_{\text{ticker}}(\text{Holds}) \subseteq \pi_{\text{ticker}}(\text{Stock})
+  \]
+\end{itemize}
+
+\section{Key \& Uniqueness Constraints}
+
+Key constraints ensure that primary keys uniquely identify tuples without duplicates. In relational algebra, uniqueness across distinct tuples is verified using a self-join that compares distinct primary key identifiers.
+
+\subsection{Uniqueness of \texttt{user.user\_id}}
+
+No two distinct users can share the same \texttt{user\_id}:
+\[
+  \sigma_{u1.\text{user\_id} = u2.\text{user\_id}}\left(\rho_{u1}(\text{User}) \bowtie_{u1.\text{email} \neq u2.\text{email}} \rho_{u2}(\text{User})\right) = \emptyset
+\]
+
+\subsection{Uniqueness of \texttt{stock.ticker}}
+
+No two distinct stocks can share the same \texttt{ticker}:
+\[
+  \sigma_{s1.\text{ticker} = s2.\text{ticker}}\left(\rho_{s1}(\text{Stock}) \bowtie_{s1.\text{company\_name} \neq s2.\text{company\_name}} \rho_{s2}(\text{Stock})\right) = \emptyset
+\]
+
+\subsection{Uniqueness of \texttt{transaction.transaction\_id}}
+
+No two distinct transactions can share the same \texttt{transaction\_id}:
+\[
+  \sigma_{t1.\text{transaction\_id} = t2.\text{transaction\_id}}\left(\rho_{t1}(\text{Transaction}) \bowtie_{t1.\text{time} \neq t2.\text{time}} \rho_{t2}(\text{Transaction})\right) = \emptyset
+\]
+
+\subsection{Composite Key Uniqueness of \texttt{holds(user\_id, ticker)}}
+
+No user can have multiple holding entries for the exact same stock ticker:
+\[
+  \sigma_{h1.\text{user\_id} = h2.\text{user\_id} \land h1.\text{ticker} = h2.\text{ticker}}\left(\rho_{h1}(\text{Holds}) \bowtie_{h1.\text{quantity} \neq h2.\text{quantity}} \rho_{h2}(\text{Holds})\right) = \emptyset
+\]
+
+\section{Domain \& Value-Range Constraints (\texttt{CHECK} Constraints)}
+
+Domain constraints restrict attribute values to valid business ranges using selection operations evaluated against the empty set ($\sigma_{\text{condition}}(R) = \emptyset$).
+
+\subsection{Non-Positive Transaction Quantities}
+
+Transaction quantities must strictly be positive ($> 0$):
+\[
+  \sigma_{\text{quantity} \le 0}(\text{Transaction}) = \emptyset
+\]
+
+\subsection{Non-Positive Execution Prices}
+
+Transaction execution prices must strictly be positive ($> 0$):
+\[
+  \sigma_{\text{price} \le 0}(\text{Transaction}) = \emptyset
+\]
+
+\subsection{Restricted Transaction Types}
+
+Transaction types must strictly be either \texttt{'buy'} or \texttt{'sell'}:
+\[
+  \sigma_{\text{transaction\_type} \notin \{\text{'buy'}, \text{'sell'}\}}(\text{Transaction}) = \emptyset
+\]
+
+\subsection{Negative Stock Holdings Quantity}
+
+Portfolio holding quantities cannot be negative ($\ge 0$):
+\[
+  \sigma_{\text{quantity} < 0}(\text{Holds}) = \emptyset
+\]
+\end{document}

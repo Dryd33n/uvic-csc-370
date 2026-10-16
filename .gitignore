@@ -2,3 +2,7 @@
 *.log
 .DS_Store
 *.gz
+*.fdb_latexmk
+*.aux
+*.fls
+*.out
