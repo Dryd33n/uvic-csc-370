@@ -6,7 +6,7 @@
 \usepackage{microtype} 
 \hypersetup{ colorlinks=true, linkcolor=blue, urlcolor=blue }
 
-\title{CSC 370 PaperTrade, Relation Algebra Constraints}
+\title{CSC 370 PaperTrade, Relational Algebra Constraints}
 \author{Dryden Bryson}
 \date{\today}
 
@@ -73,34 +73,38 @@ Every stock holding record must reference a valid stock ticker.
 
 \section{Key \& Uniqueness Constraints}
 
-Key constraints ensure that primary keys uniquely identify tuples without duplicates. In relational algebra, uniqueness across distinct tuples is verified using a self-join that compares distinct primary key identifiers.
+Key constraints ensure that primary keys uniquely identify tuples without duplicates. A set of attributes $K$ is a key of $R$ if no two distinct tuples of $R$ agree on $K$. Since a relation is a set, two tuples are distinct exactly when they differ in at least one attribute. Because they already agree on $K$, they must differ in some attribute outside $K$. So for a relation $R$ with key $K$ and non-key attributes $A_1, \dots, A_n$, the key constraint is:
+\[
+  \sigma_{r_1.K = r_2.K \;\land\; (r_1.A_1 \neq r_2.A_1 \,\lor\, \cdots \,\lor\, r_1.A_n \neq r_2.A_n)}\left(\rho_{r_1}(R) \times \rho_{r_2}(R)\right) = \emptyset
+\]
+Every non-key attribute must appear in the disjunction. If one is left out, two tuples with the same key that differ only in that attribute would not be selected, and the duplicate key would go undetected.
 
 \subsection{Uniqueness of \texttt{user.user\_id}}
 
 No two distinct users can share the same \texttt{user\_id}:
 \[
-  \sigma_{u1.\text{user\_id} = u2.\text{user\_id}}\left(\rho_{u1}(\text{User}) \bowtie_{u1.\text{email} \neq u2.\text{email}} \rho_{u2}(\text{User})\right) = \emptyset
+  \sigma_{u_1.\text{user\_id} = u_2.\text{user\_id} \;\land\; (u_1.\text{name} \neq u_2.\text{name} \,\lor\, u_1.\text{email} \neq u_2.\text{email})}\left(\rho_{u_1}(\text{User}) \times \rho_{u_2}(\text{User})\right) = \emptyset
 \]
 
 \subsection{Uniqueness of \texttt{stock.ticker}}
 
 No two distinct stocks can share the same \texttt{ticker}:
 \[
-  \sigma_{s1.\text{ticker} = s2.\text{ticker}}\left(\rho_{s1}(\text{Stock}) \bowtie_{s1.\text{company\_name} \neq s2.\text{company\_name}} \rho_{s2}(\text{Stock})\right) = \emptyset
+  \sigma_{\substack{s_1.\text{ticker} = s_2.\text{ticker} \;\land\; (s_1.\text{company\_name} \neq s_2.\text{company\_name} \,\lor\, s_1.\text{opening\_price} \neq s_2.\text{opening\_price} \\ \lor\, s_1.\text{closing\_price} \neq s_2.\text{closing\_price} \,\lor\, s_1.\text{exchange} \neq s_2.\text{exchange})}}\left(\rho_{s_1}(\text{Stock}) \times \rho_{s_2}(\text{Stock})\right) = \emptyset
 \]
 
 \subsection{Uniqueness of \texttt{transaction.transaction\_id}}
 
 No two distinct transactions can share the same \texttt{transaction\_id}:
 \[
-  \sigma_{t1.\text{transaction\_id} = t2.\text{transaction\_id}}\left(\rho_{t1}(\text{Transaction}) \bowtie_{t1.\text{time} \neq t2.\text{time}} \rho_{t2}(\text{Transaction})\right) = \emptyset
+  \sigma_{\substack{t_1.\text{transaction\_id} = t_2.\text{transaction\_id} \;\land\; (t_1.\text{user\_id} \neq t_2.\text{user\_id} \,\lor\, t_1.\text{ticker} \neq t_2.\text{ticker} \\ \lor\, t_1.\text{transaction\_type} \neq t_2.\text{transaction\_type} \,\lor\, t_1.\text{quantity} \neq t_2.\text{quantity} \\ \lor\, t_1.\text{price} \neq t_2.\text{price} \,\lor\, t_1.\text{time} \neq t_2.\text{time})}}\left(\rho_{t_1}(\text{Transaction}) \times \rho_{t_2}(\text{Transaction})\right) = \emptyset
 \]
 
 \subsection{Composite Key Uniqueness of \texttt{holds(user\_id, ticker)}}
 
 No user can have multiple holding entries for the exact same stock ticker:
 \[
-  \sigma_{h1.\text{user\_id} = h2.\text{user\_id} \land h1.\text{ticker} = h2.\text{ticker}}\left(\rho_{h1}(\text{Holds}) \bowtie_{h1.\text{quantity} \neq h2.\text{quantity}} \rho_{h2}(\text{Holds})\right) = \emptyset
+  \sigma_{h_1.\text{user\_id} = h_2.\text{user\_id} \;\land\; h_1.\text{ticker} = h_2.\text{ticker} \;\land\; (h_1.\text{quantity} \neq h_2.\text{quantity} \,\lor\, h_1.\text{average\_price} \neq h_2.\text{average\_price})}\left(\rho_{h_1}(\text{Holds}) \times \rho_{h_2}(\text{Holds})\right) = \emptyset
 \]
 
 \section{Domain \& Value-Range Constraints (\texttt{CHECK} Constraints)}

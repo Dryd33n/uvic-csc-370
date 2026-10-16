@@ -1,10 +1,17 @@
 \documentclass{article}
 \usepackage[legalpaper, portrait, margin=0.5in]{geometry}
-\usepackage {amsmath}
-\usepackage {amssymb}
-\usepackage {enumerate}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{microtype}
+\usepackage{array}
+\usepackage{booktabs}
+\hypersetup{ colorlinks=true, linkcolor=blue, urlcolor=blue }
 
-\title{CSC370 PaperTrade, Lossless Join Proof}
+\newcommand{\at}[1]{\text{#1}}
+\newcommand{\cl}[1]{\{#1\}^+}
+
+\title{CSC 370 PaperTrade, Lossless Join Proof}
 \author{Dryden Bryson}
 \date{\today}
 
@@ -12,146 +19,247 @@
 
 \maketitle
 \newpage
-Since our database is already in BCNF we need not prove a lossless join, but for the sake of proving course level competencies, we will proceed with a hypothetical flat relation as follows:
 
-$$\text{UserHoldings}(\text{user\_id, name, email, ticker, quantity, average\_price})$$
+\section*{Overview}
 
-With the complete set of attributes being:
+Each of our four relations (\texttt{user}, \texttt{stock}, \texttt{transaction} and \texttt{holds}) is already in BCNF (see the \emph{Functional Dependencies and Candidate Keys} document). Losslessness is a property of a \emph{decomposition}, not of a single relation. Our four relations are the result of decomposing the single table we would have without normalization: the \textbf{universal relation} $U$, which holds every attribute of the database in one row per trade.
 
-$$
-C=\{\text{user\_id, name, email, ticker, quantity, average\_price}\}
-$$
-
-We can now assert the following functional dependencies, ($F$): 
-\begin{itemize}
-    \item $FD_{1}$ : $\text{user\_id} \rightarrow \text{name, email}$
-    \item $FD_{2}$ : user\_id, ticker $\rightarrow$ quantity, average\_price
-\end{itemize}
-
-We can now derive the following candidate key by computing the attribute closures:
-
-\begin{enumerate}
-  \item \textbf{Closure of } $\{\text{user\_id}\}$:
-  \[
-    \{\text{user\_id}\}^+ = \{\text{user\_id, name, email}\} \neq C
-  \]
-  Since the closure does not contain all attributes of $C$, $\{\text{user\_id}\}$ is not a superkey.
-
-  \item \textbf{Closure of } $\{\text{ticker}\}$:
-  \[
-    \{\text{ticker}\}^+ = \{\text{ticker}\} \neq C
-  \]
-  Since the closure does not contain all attributes of $C$, $\{\text{ticker}\}$ is not a superkey.
-
-  \item \textbf{Closure of} $\{\text{user\_id, ticker}\}$:
-  \begin{align*}
-    \{\text{user\_id, ticker}\}^+
-      &\supseteq \{\text{user\_id, ticker}\} && \text{(by triviality)} \\
-      &\supseteq \{\text{user\_id, ticker, name, email}\} && \text{(applying } FD_1\text{)} \\
-      &\supseteq \{\text{user\_id, ticker, name, email, quantity, average\_price}\} && \text{(applying } FD_2\text{)} \\
-      &= C
-  \end{align*}
+This document:
+\begin{enumerate}[leftmargin=*]
+  \item defines $U$ and its FDs, finds its candidate key, and shows that it violates BCNF, using anomalies from \texttt{sql/seed.sql};
+  \item decomposes $U$ with the BCNF decomposition algorithm, which ends in exactly our four relations, and proves each step lossless;
+  \item confirms the whole four-way decomposition is lossless with the chase test;
+  \item gives a lossy decomposition of \texttt{holds} as a counterexample, with spurious tuples taken from the seed data.
 \end{enumerate}
 
-Because $\{\text{user\_id, ticker}\}^+ = C$ and no proper subset of $\{\text{user\_id, ticker}\}$ determines all attributes in $C$, $\{\text{user\_id, ticker}\}$ is the minimal candidate key for $\text{UserHoldings}$.
+\section{The Universal Relation}
 
-\subsection*{BCNF Violation Analysis}
-
-A relation $R$ with attribute set $C$ is in \textbf{Boyce-Codd Normal Form (BCNF)} if and only if for every non-trivial functional dependency $X \rightarrow Y$, the antecedent $X$ is a superkey of $R$ ($X^+ = C$).
-
-Evaluating $FD_1: \text{user\_id} \rightarrow \text{name, email}$:
-\begin{itemize}
-  \item \textbf{Antecedent ($X$):} $\{\text{user\_id}\}$
-  \item \textbf{Closure ($X^+$):} $\{\text{user\_id}\}^+ = \{\text{user\_id, name, email}\} \neq C$
-\end{itemize}
-
-Since $\{\text{user\_id}\}$ is not a superkey for $\text{UserHoldings}$, $FD_1$ violates BCNF, causing data redundancy as well as update, insertion, and deletion anomalies.
-
-\subsection*{BCNF Decomposition Algorithm}
-
-We apply the formal BCNF decomposition algorithm ($\text{BCNF\_Decomp}$) to eliminate the violation:
-\begin{enumerate}
-  \item Select the BCNF violation $FD_1: \text{user\_id} \rightarrow \text{name, email}$ with antecedent $X = \{\text{user\_id}\}$.
-  \item Compute the closure $X^+ =
-\end{enumerate}
-
-\begin{enumerate}
-  \item \textbf{Closure of } $\{\text{user\_id}\}$:
-  \[
-    \{\text{user\_id}\}^+ = \{\text{user\_id, name, email}\} \neq C
-  \]
-  Since $\{\text{user\_id}\}^+ \neq C$, $\{\text{user\_id}\}$ is not a superkey.
-
-  \item \textbf{Closure of } $\{\text{ticker}\}$:
-  \[
-    \{\text{ticker}\}^+ = \{\text{ticker}\} \neq C
-  \]
-  Since $\{\text{ticker}\}^+ \neq C$, $\{\text{ticker}\}$ is not a superkey.
-
-  \item \textbf{Closure of Composite Set } $\{\text{user\_id, ticker}\}$:
-  \begin{align*}
-    \{\text{user\_id, ticker}\}^+
-      &\supseteq \{\text{user\_id, ticker}\} && \text{(by triviality)} \\
-      &\supseteq \{\text{user\_id, ticker, name, email}\} && \text{(applying } FD_1\text{)} \\
-      &\supseteq \{\text{user\_id, ticker, name, email, quantity, average\_price}\} && \text{(applying } FD_2\text{)} \\
-      &= C
-  \end{align*}
-\end{enumerate}
-
-Because $\{\text{user\_id, ticker}\}^+ = C$ and no proper subset determines all attributes in $C$, $\{\text{user\_id, ticker}\}$ is the minimal candidate key for $\text{UserHoldings}$.
-
-\subsection*{BCNF Violation Analysis}
-
-A relation $R$ with attribute set $C$ is in \textbf{Boyce-Codd Normal Form (BCNF)} if and only if for every non-trivial functional dependency $X \rightarrow Y$, the antecedent $X$ is a superkey of $R$ ($X^+ = C$).
-
-Evaluating $FD_1: \text{user\_id} \rightarrow \text{name, email}$:
-\begin{itemize}
-  \item \textbf{Antecedent ($X$):} $\{\text{user\_id}\}$
-  \item \textbf{Closure ($X^+$):} $\{\text{user\_id}\}^+ = \{\text{user\_id, name, email}\} \neq C$
-\end{itemize}
-
-Since $\{\text{user\_id}\}$ is not a superkey for $\text{UserHoldings}$, $FD_1$ represents a \textbf{BCNF violation}, introducing data redundancy as well as update, insertion, and deletion anomalies.
-
-\subsection*{BCNF Decomposition Algorithm}
-
-We apply the formal BCNF decomposition algorithm ($\text{BCNF\_Decomp}$) to eliminate the violation:
-\begin{enumerate}
-  \item Select the BCNF violation $FD_1: \text{user\_id} \rightarrow \text{name, email}$ with antecedent $X = \{\text{user\_id}\}$.
-  \item Compute the closure $X^+ = \{\text{user\_id}\}^+ = \{\text{user\_id, name, email}\}$.
-  \item Form relation $R_1 := X^+$:
-  \[
-    R_1 = \{\text{user\_id, name, email}\} \implies \text{User}(\text{user\_id, name, email})
-  \]
-  \item Form relation $R_2 := (C \setminus X^+) \cup X$:
-  \[
-    R_2 = \{\text{user\_id, ticker, quantity, average\_price}\} \implies \text{Holds}(\text{user\_id, ticker, quantity, average\_price})
-  \]
-\end{enumerate}
-
-Both sub-relations $R_1$ and $R_2$ now satisfy BCNF because their respective determinants are superkeys within their relation schemas.
-
-\subsection*{Lossless Join Proof}
-
-According to the \textbf{Lossless Join Theorem}, a decomposition of relation $R$ into sub-relations $R_1$ and $R_2$ is \textbf{lossless} if and only if the shared attributes $(R_1 \cap R_2)$ form a superkey for $R_1$ or $R_2$:
+$U$ stores one row per trade. Each row also carries the trader's account details, the stock's details, and the trader's current position in that stock. \texttt{transaction} and \texttt{holds} both have a \texttt{quantity} attribute, so we rename them $\at{t\_quantity}$ (shares in this trade) and $\at{h\_quantity}$ (shares currently held).
 \[
-  (R_1 \cap R_2) \rightarrow R_1 \quad \text{or} \quad (R_1 \cap R_2) \rightarrow R_2 \in F^+
+  U(\at{transaction\_id}, \at{user\_id}, \at{name}, \at{email}, \at{ticker}, \at{company\_name}, \at{opening\_price}, \at{closing\_price}, \at{exchange},
+\]
+\[
+  \at{transaction\_type}, \at{t\_quantity}, \at{price}, \at{time}, \at{h\_quantity}, \at{average\_price})
 \]
 
-\begin{enumerate}
-  \item \textbf{Attribute Intersection:}
-  \[
-    R_1 \cap R_2 = \{\text{user\_id, name, email}\} \cap \{\text{user\_id, ticker, quantity, average\_price}\} = \{\text{user\_id}\}
-  \]
-  \item \textbf{Closure of Shared Attributes:}
-  \[
-    \{\text{user\_id}\}^+ = \{\text{user\_id, name, email}\} = R_1
-  \]
-    \item \textbf{Superkey Verification:} Since $\{\text{user\_id}\}^+ = R_1$, the shared attribute set $\{\text{user\_id}\}$ forms a superkey for $R_1$ ($\text{User}$).
+To keep the expressions readable, we group attributes that always appear together:
+\begin{align*}
+  N &= \{\at{name}, \at{email}\} && \text{(account details)} \\
+  S &= \{\at{company\_name}, \at{opening\_price}, \at{closing\_price}, \at{exchange}\} && \text{(stock details)} \\
+  T &= \{\at{transaction\_type}, \at{t\_quantity}, \at{price}, \at{time}\} && \text{(trade details)} \\
+  P &= \{\at{h\_quantity}, \at{average\_price}\} && \text{(position details)}
+\end{align*}
+\[
+  U = \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\} \cup N \cup S \cup T \cup P
+\]
+
+\subsection*{Functional Dependencies $F$}
+
+These are the FDs of the four relations, from the \emph{Functional Dependencies and Candidate Keys} document:
+\begin{itemize}[leftmargin=*]
+  \item $FD_1$: $\at{user\_id} \rightarrow N$
+  \item $FD_2$: $\at{email} \rightarrow \at{user\_id}$
+  \item $FD_3$: $\at{ticker} \rightarrow S$
+  \item $FD_4$: $\at{transaction\_id} \rightarrow \at{user\_id}, \at{ticker}, T$
+  \item $FD_5$: $\at{user\_id}, \at{ticker} \rightarrow P$
+\end{itemize}
+
+\subsection*{Candidate Key of $U$}
+
+\begin{align*}
+  \cl{\at{transaction\_id}}
+    &\supseteq \{\at{transaction\_id}\} && \text{(reflexivity)} \\
+    &\supseteq \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\} \cup T && \text{(applying } FD_4\text{)} \\
+    &\supseteq \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\} \cup T \cup N && \text{(applying } FD_1\text{, transitivity)} \\
+    &\supseteq \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\} \cup T \cup N \cup S && \text{(applying } FD_3\text{, transitivity)} \\
+    &\supseteq \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\} \cup T \cup N \cup S \cup P && \text{(applying } FD_5\text{, transitivity)} \\
+    &= U
+\end{align*}
+
+$\{\at{transaction\_id}\}$ is a superkey, and its only proper subset $\emptyset$ has $\emptyset^+ = \emptyset$, so it is a candidate key. No FD has $\at{transaction\_id}$ on its right-hand side. The only way to derive it is reflexivity, so every superkey must contain $\at{transaction\_id}$. $\{\at{transaction\_id}\}$ is therefore the \textbf{only} candidate key of $U$.
+
+\subsection*{BCNF Violations}
+
+$U$ is in BCNF only if the left-hand side of every non-trivial FD is a superkey. Four of the five FDs fail this:
+\begin{center}
+\begin{tabular}{l l l}
+  \toprule
+  \textbf{FD} & \textbf{Closure of left-hand side in $U$} & \textbf{Superkey?} \\
+  \midrule
+  $FD_1$ & $\cl{\at{user\_id}} = \{\at{user\_id}\} \cup N$ & No \\
+  $FD_2$ & $\cl{\at{email}} = \{\at{user\_id}\} \cup N$ & No \\
+  $FD_3$ & $\cl{\at{ticker}} = \{\at{ticker}\} \cup S$ & No \\
+  $FD_4$ & $\cl{\at{transaction\_id}} = U$ & Yes \\
+  $FD_5$ & $\cl{\at{user\_id}, \at{ticker}} = \{\at{user\_id}, \at{ticker}\} \cup N \cup S \cup P$ & No \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\subsection*{Anomalies in $U$}
+
+Each violation causes anomalies, which the seed data shows directly:
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Insertion:} every row of $U$ needs a $\at{transaction\_id}$. So $U$ cannot store user 9 (Isla MacDonald, who has no trades yet), or the stocks CNR and ATD, which have never been traded.
+  \item \textbf{Update:} AAPL appears in 9 trades, so its closing price is stored 9 times. Changing it means updating all 9 rows, and missing one leaves $U$ inconsistent ($FD_3$).
+  \item \textbf{Deletion:} user 7 (Grace Liu) has 4 trades. Deleting those 4 rows also deletes Grace's name and email ($FD_1$).
+\end{itemize}
+
+\section{BCNF Decomposition of $U$}
+
+\textbf{Lossless join test.} A decomposition of $R$ into $R_1$ and $R_2$ is lossless if and only if
+\[
+  (R_1 \cap R_2) \rightarrow R_1 \quad \text{or} \quad (R_1 \cap R_2) \rightarrow R_2 \quad \text{is in } F^+
+\]
+That is, the shared attributes form a superkey of at least one side.
+
+Each step of the algorithm picks a violation $X \rightarrow Y$ and splits $R$ into $R_1 = X^+$ and $R_2 = (R \setminus X^+) \cup X$. Then $R_1 \cap R_2 = X$, and $X \rightarrow X^+ = R_1$ by the definition of closure, so each step passes the test.
+
+\subsection*{Step 1: Remove $FD_1$}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Violation:} $FD_1$: $\at{user\_id} \rightarrow N$, with $\cl{\at{user\_id}} = \{\at{user\_id}\} \cup N$.
+  \item \textbf{Split:}
+  \begin{align*}
+    R_1 &= \{\at{user\_id}\} \cup N = \{\at{user\_id}, \at{name}, \at{email}\} \implies \textbf{\texttt{user}} \\
+    U_1 &= (U \setminus N) \cup \{\at{user\_id}\} = \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\} \cup S \cup T \cup P
+  \end{align*}
+  \item \textbf{Lossless:} $R_1 \cap U_1 = \{\at{user\_id}\}$, and $\cl{\at{user\_id}} \supseteq R_1$. So $\{\at{user\_id}\}$ is a superkey of $R_1$ and the split is lossless.
+  \item $FD_2$ ($\at{email} \rightarrow \at{user\_id}$) now lies entirely inside \texttt{user}, where $\at{email}$ is a candidate key. So it is no longer a violation.
+\end{itemize}
+
+\subsection*{Step 2: Remove $FD_3$}
+
+The FDs projected onto $U_1$ include $FD_3$, $FD_4$ and $FD_5$, since all their attributes lie in $U_1$. $\{\at{transaction\_id}\}$ is still the only key of $U_1$, so $FD_3$ still violates BCNF.
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Violation:} $FD_3$: $\at{ticker} \rightarrow S$, with $\cl{\at{ticker}} = \{\at{ticker}\} \cup S$.
+  \item \textbf{Split:}
+  \begin{align*}
+    R_2 &= \{\at{ticker}\} \cup S \implies \textbf{\texttt{stock}} \\
+    U_2 &= (U_1 \setminus S) \cup \{\at{ticker}\} = \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\} \cup T \cup P
+  \end{align*}
+  \item \textbf{Lossless:} $R_2 \cap U_2 = \{\at{ticker}\}$, and $\cl{\at{ticker}} \supseteq R_2$. So $\{\at{ticker}\}$ is a superkey of $R_2$ and the split is lossless.
+\end{itemize}
+
+\subsection*{Step 3: Remove $FD_5$}
+
+The FDs projected onto $U_2$ include $FD_4$ and $FD_5$. In $U_2$, $\cl{\at{user\_id}, \at{ticker}} \cap U_2 = \{\at{user\_id}, \at{ticker}\} \cup P \neq U_2$, because it does not contain $\at{transaction\_id}$. So $FD_5$ still violates BCNF.
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Violation:} $FD_5$: $\at{user\_id}, \at{ticker} \rightarrow P$.
+  \item \textbf{Split:}
+  \begin{align*}
+    R_3 &= \{\at{user\_id}, \at{ticker}\} \cup P = \{\at{user\_id}, \at{ticker}, \at{h\_quantity}, \at{average\_price}\} \implies \textbf{\texttt{holds}} \\
+    R_4 &= (U_2 \setminus P) = \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\} \cup T \implies \textbf{\texttt{transaction}}
+  \end{align*}
+  \item \textbf{Lossless:} $R_3 \cap R_4 = \{\at{user\_id}, \at{ticker}\}$, and $\cl{\at{user\_id}, \at{ticker}} \supseteq R_3$. So $\{\at{user\_id}, \at{ticker}\}$ is a superkey of $R_3$ and the split is lossless.
+\end{itemize}
+
+\subsection*{Result}
+
+The algorithm stops, because each of the four resulting relations is in BCNF:
+\begin{center}
+\begin{tabular}{l l l}
+  \toprule
+  \textbf{Relation} & \textbf{Attributes} & \textbf{Projected FDs} \\
+  \midrule
+  \texttt{user} & $\at{user\_id}, \at{name}, \at{email}$ & $FD_1$, $FD_2$ \\
+  \texttt{stock} & $\at{ticker}, \at{company\_name}, \at{opening\_price}, \at{closing\_price}, \at{exchange}$ & $FD_3$ \\
+  \texttt{holds} & $\at{user\_id}, \at{ticker}, \at{h\_quantity}, \at{average\_price}$ & $FD_5$ \\
+  \texttt{transaction} & $\at{transaction\_id}, \at{user\_id}, \at{ticker}, \at{transaction\_type}, \at{t\_quantity}, \at{price}, \at{time}$ & $FD_4$ \\
+  \bottomrule
+\end{tabular}
+\end{center}
+This is exactly the schema in \texttt{sql/ddl.sql}. Every FD of $F$ lies inside one relation, so the decomposition also preserves dependencies.
+
+Each binary step is lossless, so the whole decomposition is lossless. If $R = R_1 \bowtie U_1$ and $U_1 = R_2 \bowtie U_2$, then $R = R_1 \bowtie R_2 \bowtie U_2$, and so on for every step:
+\[
+  \pi_{\texttt{user}}(U) \bowtie \pi_{\texttt{stock}}(U) \bowtie \pi_{\texttt{holds}}(U) \bowtie \pi_{\texttt{transaction}}(U) = U
+\]
+
+\section{Chase Test of the Four-Way Decomposition}
+
+The chase checks the whole decomposition at once. Build a tableau with one row per relation. Put the distinguished symbol $a$ in each column the relation contains, and a subscripted $b_{ij}$ (row $i$, column $j$) everywhere else. Each group $N$, $S$, $T$ and $P$ can be one column, because each group lies wholly inside or wholly outside every relation, and every FD's right-hand side contains whole groups.
+
+\textbf{Initial tableau:}
+\[
+\begin{array}{l|ccccccc}
+  & \at{transaction\_id} & \at{user\_id} & N & \at{ticker} & S & T & P \\
+  \hline
+  \texttt{user}        & b_{11} & a      & a      & b_{14} & b_{15} & b_{16} & b_{17} \\
+  \texttt{stock}       & b_{21} & b_{22} & b_{23} & a      & a      & b_{26} & b_{27} \\
+  \texttt{holds}       & b_{31} & a      & b_{33} & a      & b_{35} & b_{36} & a      \\
+  \texttt{transaction} & a      & a      & b_{43} & a      & b_{45} & a      & b_{47} \\
+\end{array}
+\]
+
+\textbf{Applying the FDs:}
+\begin{enumerate}[leftmargin=*]
+  \item $FD_1$ ($\at{user\_id} \rightarrow N$): rows \texttt{user}, \texttt{holds} and \texttt{transaction} agree on $\at{user\_id} = a$, and \texttt{user} has $N = a$. Set $b_{33} := a$ and $b_{43} := a$.
+  \item $FD_3$ ($\at{ticker} \rightarrow S$): rows \texttt{stock}, \texttt{holds} and \texttt{transaction} agree on $\at{ticker} = a$, and \texttt{stock} has $S = a$. Set $b_{35} := a$ and $b_{45} := a$.
+  \item $FD_5$ ($\at{user\_id}, \at{ticker} \rightarrow P$): rows \texttt{holds} and \texttt{transaction} agree on $\at{user\_id} = a$ and $\at{ticker} = a$, and \texttt{holds} has $P = a$. Set $b_{47} := a$.
 \end{enumerate}
 
-\textbf{Conclusion:} Because $(R_1 \cap R_2) \rightarrow R_1$, the decomposition of $\text{UserHoldings}$ into $R_1$ ($\text{User}$) and $R_2$ ($\text{Holds}$) satisfies the Lossless Join Theorem. Rejoining the relations via natural join is mathematically proven to be lossless:
+\textbf{Final tableau:}
 \[
-  \pi_{R_1}(\text{UserHoldings}) \bowtie \pi_{R_2}(\text{UserHoldings}) = \text{UserHoldings}
+\begin{array}{l|ccccccc}
+  & \at{transaction\_id} & \at{user\_id} & N & \at{ticker} & S & T & P \\
+  \hline
+  \texttt{user}        & b_{11} & a      & a      & b_{14} & b_{15} & b_{16} & b_{17} \\
+  \texttt{stock}       & b_{21} & b_{22} & b_{23} & a      & a      & b_{26} & b_{27} \\
+  \texttt{holds}       & b_{31} & a      & a      & a      & a      & b_{36} & a      \\
+  \texttt{transaction} & a      & a      & a      & a      & a      & a      & a      \\
+\end{array}
+\]
+
+The \texttt{transaction} row is now all distinguished symbols ($a$), so the decomposition is \textbf{lossless}. This agrees with the step-by-step proof.
+
+\subsection*{Joining the Implemented Tables}
+
+The proof covers instances of $U$, where every user, stock and position belongs to at least one trade. The implemented tables can store more than $U$ can, which is how they remove the insertion anomalies. For example, \texttt{user} stores Isla MacDonald, who has no trades.
+
+Tuples that have no matching tuple in another relation are \textbf{dangling tuples}, and the natural join drops them. In the seed data:
+\begin{itemize}[leftmargin=*]
+  \item user 9 and the stocks CNR and ATD join with no trades;
+  \item 16 of the 82 trades are in positions that have since been closed, and the seed data has no \texttt{holds} row for a closed position. The join of all four tables therefore returns 66 rows, one for each trade in an open position.
+\end{itemize}
+Dangling tuples are data that $U$ could never have held. They do not contradict losslessness: projecting any legal instance of $U$ and joining the projections back still returns exactly that instance.
+
+\section{Counterexample: A Lossy Decomposition}
+
+To show why the test matters, decompose \texttt{holds} so that the shared attributes are not a superkey of either side:
+\[
+  H_1 = \{\at{user\_id}, \at{h\_quantity}\}, \qquad H_2 = \{\at{ticker}, \at{h\_quantity}, \at{average\_price}\}
+\]
+Then $H_1 \cap H_2 = \{\at{h\_quantity}\}$, and $\cl{\at{h\_quantity}} = \{\at{h\_quantity}\}$, so neither $\{\at{h\_quantity}\} \rightarrow H_1$ nor $\{\at{h\_quantity}\} \rightarrow H_2$ holds. The test fails.
+
+The seed data has two positions of 33 shares, held by different users in different stocks:
+\begin{center}
+\begin{tabular}{c c c c}
+  \toprule
+  \texttt{user\_id} & \texttt{ticker} & \texttt{h\_quantity} & \texttt{average\_price} \\
+  \midrule
+  3 & AMZN & 33 & 199.6300 \\
+  8 & AAPL & 33 & 226.1091 \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+$\pi_{H_1}$ contains $(3, 33)$ and $(8, 33)$, and $\pi_{H_2}$ contains $(\text{AMZN}, 33, 199.6300)$ and $(\text{AAPL}, 33, 226.1091)$. Joining them on $\at{h\_quantity} = 33$ pairs every user with every stock:
+\begin{center}
+\begin{tabular}{c c c c l}
+  \toprule
+  \texttt{user\_id} & \texttt{ticker} & \texttt{h\_quantity} & \texttt{average\_price} & \\
+  \midrule
+  3 & AMZN & 33 & 199.6300 & original \\
+  3 & AAPL & 33 & 226.1091 & \textbf{spurious} \\
+  8 & AMZN & 33 & 199.6300 & \textbf{spurious} \\
+  8 & AAPL & 33 & 226.1091 & original \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+Over all 22 rows of \texttt{holds}, $\pi_{H_1}(\texttt{holds}) \bowtie \pi_{H_2}(\texttt{holds})$ has 24 rows: the 22 originals plus these 2 spurious tuples. The join claims that user 3 holds AAPL and user 8 holds AMZN, which is false. Since the original relation cannot be recovered, the decomposition is \textbf{lossy}:
+\[
+  \pi_{H_1}(\texttt{holds}) \bowtie \pi_{H_2}(\texttt{holds}) \supsetneq \texttt{holds}
 \]
 
 \end{document}

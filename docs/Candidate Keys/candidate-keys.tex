@@ -1,0 +1,268 @@
+\documentclass{article}
+\usepackage[legalpaper, portrait, margin=0.5in]{geometry}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{microtype}
+\usepackage{array}
+\hypersetup{ colorlinks=true, linkcolor=blue, urlcolor=blue }
+
+\newcommand{\at}[1]{\text{#1}}
+\newcommand{\cl}[1]{\{#1\}^+}
+
+% One row of a derivation: step number, derived FD, justification
+\newenvironment{derivation}
+  {\par\smallskip\noindent\begin{tabular}{>{$}r<{$} >{$}l<{$} l}}
+  {\end{tabular}\par\smallskip}
+
+\title{CSC 370 PaperTrade, Functional Dependencies and Candidate Keys}
+\author{Dryden Bryson}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\newpage
+
+\section*{Overview}
+
+This document gives the set of functional dependencies (FDs) for each relation in the \texttt{stock\_trading} database (\texttt{user}, \texttt{stock}, \texttt{transaction} and \texttt{holds}). For each relation it computes attribute closures ($X^+$), deriving every step from Armstrong's axioms, and uses them to find all candidate keys and superkeys. For each candidate key it shows that no proper subset is a superkey, so the key is minimal.
+
+\section{Armstrong's Axioms and Derived Rules}
+
+Let $X$, $Y$ and $Z$ be sets of attributes, and write $XY$ for $X \cup Y$.
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{(A1) Reflexivity:} if $Y \subseteq X$, then $X \rightarrow Y$.
+  \item \textbf{(A2) Augmentation:} if $X \rightarrow Y$, then $XZ \rightarrow YZ$.
+  \item \textbf{(A3) Transitivity:} if $X \rightarrow Y$ and $Y \rightarrow Z$, then $X \rightarrow Z$.
+\end{itemize}
+
+Two more rules follow from these and are used in the derivations below.
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{(U) Union:} if $X \rightarrow Y$ and $X \rightarrow Z$, then $X \rightarrow YZ$.
+
+  \emph{Proof.} Augmenting $X \rightarrow Y$ with $X$ gives $X \rightarrow XY$ (A2, since $XX = X$). Augmenting $X \rightarrow Z$ with $Y$ gives $XY \rightarrow YZ$ (A2). By transitivity, $X \rightarrow YZ$ (A3).
+
+  \item \textbf{(D) Decomposition:} if $X \rightarrow YZ$, then $X \rightarrow Y$.
+
+  \emph{Proof.} $YZ \rightarrow Y$ by reflexivity (A1), so $X \rightarrow Y$ by transitivity (A3).
+\end{itemize}
+
+\subsection*{Closures, Superkeys and Candidate Keys}
+
+For a relation $R$ with attribute set $C$ and FD set $F$, the \textbf{closure} $X^+$ is the set of all attributes $A$ such that $X \rightarrow A$ follows from $F$ by Armstrong's axioms. Then:
+
+\begin{itemize}[leftmargin=*]
+  \item $X$ is a \textbf{superkey} of $R$ if and only if $X^+ = C$.
+  \item $X$ is a \textbf{candidate key} of $R$ if it is a superkey and no proper subset of $X$ is a superkey.
+\end{itemize}
+
+\textbf{No-fire lemma.} If $X$ contains the left-hand side of no FD in $F$, then $X^+ = X$. The axioms only ever derive $X \rightarrow A$ for $A \in X$ (reflexivity), or for $A$ on the right-hand side of an FD whose left-hand side is already in the closure. In particular, $\emptyset^+ = \emptyset$, since none of our FDs has an empty left-hand side.
+
+\section{\texttt{user}}
+
+\[
+  C_U = \{\at{user\_id}, \at{name}, \at{email}\}
+\]
+
+\subsection*{FD Set $F_U$}
+
+\begin{itemize}[leftmargin=*]
+  \item $FD_1$: $\at{user\_id} \rightarrow \at{name}, \at{email}$. Each user ID belongs to one account.
+  \item $FD_2$: $\at{email} \rightarrow \at{user\_id}$. An email address can register only one account.
+\end{itemize}
+
+\textbf{Dependencies that do not hold:} $\at{name} \not\rightarrow \at{user\_id}$, since two users can share a name (two people named Alice Martin can both register).
+
+\subsection*{Closure of $\{\at{user\_id}\}$}
+
+\begin{derivation}
+  1. & \at{user\_id} \rightarrow \at{user\_id} & Reflexivity (A1) \\
+  2. & \at{user\_id} \rightarrow \at{name}, \at{email} & Given ($FD_1$) \\
+  3. & \at{user\_id} \rightarrow \at{user\_id}, \at{name}, \at{email} & Union (U) of 1 and 2 \\
+\end{derivation}
+
+\[
+  \cl{\at{user\_id}} = \{\at{user\_id}, \at{name}, \at{email}\} = C_U
+\]
+So $\{\at{user\_id}\}$ is a superkey.
+
+\subsection*{Closure of $\{\at{email}\}$}
+
+\begin{derivation}
+  1. & \at{email} \rightarrow \at{email} & Reflexivity (A1) \\
+  2. & \at{email} \rightarrow \at{user\_id} & Given ($FD_2$) \\
+  3. & \at{user\_id} \rightarrow \at{name}, \at{email} & Given ($FD_1$) \\
+  4. & \at{email} \rightarrow \at{name}, \at{email} & Transitivity (A3) of 2 and 3 \\
+  5. & \at{email} \rightarrow \at{name} & Decomposition (D) of 4 \\
+  6. & \at{email} \rightarrow \at{user\_id}, \at{name}, \at{email} & Union (U) of 1, 2 and 5 \\
+\end{derivation}
+
+\[
+  \cl{\at{email}} = \{\at{user\_id}, \at{name}, \at{email}\} = C_U
+\]
+So $\{\at{email}\}$ is a superkey.
+
+\subsection*{Minimality}
+
+The only proper subset of $\{\at{user\_id}\}$ or $\{\at{email}\}$ is $\emptyset$, and $\emptyset^+ = \emptyset \neq C_U$ by the no-fire lemma. So neither key can be reduced, and both are candidate keys.
+
+\subsection*{No Other Candidate Keys}
+
+The FD left-hand sides are $\{\at{user\_id}\}$ and $\{\at{email}\}$. A set containing neither is a subset of $\{\at{name}\}$, and by the no-fire lemma $\cl{\at{name}} = \{\at{name}\} \neq C_U$. Every superkey therefore contains $\at{user\_id}$ or $\at{email}$, so it contains one of the two candidate keys.
+
+\textbf{Candidate keys:} $\{\at{user\_id}\}$ and $\{\at{email}\}$, with $\{\at{user\_id}\}$ chosen as the primary key.
+
+\textbf{Superkeys (6):} every superset of a candidate key:
+$\{\at{user\_id}\}$, $\{\at{email}\}$, $\{\at{user\_id}, \at{name}\}$, $\{\at{email}, \at{name}\}$, $\{\at{user\_id}, \at{email}\}$, $\{\at{user\_id}, \at{name}, \at{email}\}$.
+
+\section{\texttt{stock}}
+
+\[
+  C_S = \{\at{ticker}, \at{company\_name}, \at{opening\_price}, \at{closing\_price}, \at{exchange}\}
+\]
+
+\subsection*{FD Set $F_S$}
+
+\begin{itemize}[leftmargin=*]
+  \item $FD_3$: $\at{ticker} \rightarrow \at{company\_name}, \at{opening\_price}, \at{closing\_price}, \at{exchange}$. A ticker identifies one listed security, with one listing exchange and one session's prices.
+\end{itemize}
+
+\textbf{Dependencies that do not hold:}
+\begin{itemize}[leftmargin=*]
+  \item $\at{company\_name} \not\rightarrow \at{ticker}$: one company can list several share classes under different tickers (for example, Alphabet trades as both GOOGL and GOOG).
+  \item $\at{exchange} \not\rightarrow \at{ticker}$: each exchange lists many stocks.
+  \item Prices determine nothing: two stocks can open or close at the same price.
+\end{itemize}
+
+\subsection*{Closure of $\{\at{ticker}\}$}
+
+\begin{derivation}
+  1. & \at{ticker} \rightarrow \at{ticker} & Reflexivity (A1) \\
+  2. & \at{ticker} \rightarrow \at{company\_name}, \at{opening\_price}, \at{closing\_price}, \at{exchange} & Given ($FD_3$) \\
+  3. & \at{ticker} \rightarrow \at{ticker}, \at{company\_name}, \at{opening\_price}, \at{closing\_price}, \at{exchange} & Union (U) of 1 and 2 \\
+\end{derivation}
+
+\[
+  \cl{\at{ticker}} = C_S
+\]
+So $\{\at{ticker}\}$ is a superkey.
+
+\subsection*{Minimality}
+
+The only proper subset of $\{\at{ticker}\}$ is $\emptyset$, and $\emptyset^+ = \emptyset \neq C_S$. So $\{\at{ticker}\}$ is a candidate key.
+
+\subsection*{No Other Candidate Keys}
+
+$\{\at{ticker}\}$ is the only FD left-hand side. Any set $X$ without $\at{ticker}$ fires no FD, so $X^+ = X \neq C_S$ by the no-fire lemma. Every superkey therefore contains $\at{ticker}$.
+
+\textbf{Candidate key:} $\{\at{ticker}\}$ (the primary key).
+
+\textbf{Superkeys ($2^4 = 16$):} $\{\at{ticker}\} \cup Y$ for every $Y \subseteq \{\at{company\_name}, \at{opening\_price}, \at{closing\_price}, \at{exchange}\}$.
+
+\section{\texttt{transaction}}
+
+\[
+  C_T = \{\at{transaction\_id}, \at{user\_id}, \at{ticker}, \at{transaction\_type}, \at{quantity}, \at{price}, \at{time}\}
+\]
+
+\subsection*{FD Set $F_T$}
+
+\begin{itemize}[leftmargin=*]
+  \item $FD_4$: $\at{transaction\_id} \rightarrow \at{user\_id}, \at{ticker}, \at{transaction\_type}, \at{quantity}, \at{price}, \at{time}$. Each transaction ID records one trade.
+\end{itemize}
+
+\textbf{Dependencies that do not hold:} $\at{user\_id}, \at{ticker}, \at{time} \not\rightarrow \at{transaction\_id}$. \texttt{time} has one-second resolution, and a user can place two orders for the same stock within the same second (for example, a buy and an immediate sell). Without $\at{transaction\_id}$, no combination of the other attributes is guaranteed to be unique.
+
+\subsection*{Closure of $\{\at{transaction\_id}\}$}
+
+\begin{derivation}
+  1. & \at{transaction\_id} \rightarrow \at{transaction\_id} & Reflexivity (A1) \\
+  2. & \at{transaction\_id} \rightarrow C_T \setminus \{\at{transaction\_id}\} & Given ($FD_4$) \\
+  3. & \at{transaction\_id} \rightarrow C_T & Union (U) of 1 and 2 \\
+\end{derivation}
+
+\[
+  \cl{\at{transaction\_id}} = C_T
+\]
+So $\{\at{transaction\_id}\}$ is a superkey.
+
+\subsection*{Minimality}
+
+The only proper subset of $\{\at{transaction\_id}\}$ is $\emptyset$, and $\emptyset^+ = \emptyset \neq C_T$. So $\{\at{transaction\_id}\}$ is a candidate key.
+
+\subsection*{No Other Candidate Keys}
+
+$\{\at{transaction\_id}\}$ is the only FD left-hand side. Any set $X$ without $\at{transaction\_id}$ has $X^+ = X \neq C_T$ by the no-fire lemma. Every superkey therefore contains $\at{transaction\_id}$.
+
+\textbf{Candidate key:} $\{\at{transaction\_id}\}$ (the primary key).
+
+\textbf{Superkeys ($2^6 = 64$):} $\{\at{transaction\_id}\} \cup Y$ for every $Y \subseteq C_T \setminus \{\at{transaction\_id}\}$.
+
+\section{\texttt{holds}}
+
+\[
+  C_H = \{\at{user\_id}, \at{ticker}, \at{quantity}, \at{average\_price}\}
+\]
+
+\subsection*{FD Set $F_H$}
+
+\begin{itemize}[leftmargin=*]
+  \item $FD_5$: $\at{user\_id}, \at{ticker} \rightarrow \at{quantity}, \at{average\_price}$. A user has one position in each stock.
+\end{itemize}
+
+\textbf{Dependencies that do not hold} (counterexamples from \texttt{sql/seed.sql}):
+\begin{itemize}[leftmargin=*]
+  \item $\at{user\_id} \not\rightarrow \at{quantity}$: user 1 holds 2 shares of AAPL and 74 shares of GOOGL.
+  \item $\at{ticker} \not\rightarrow \at{quantity}$: AAPL is held by user 1 (2 shares), user 5 (12 shares) and user 8 (33 shares).
+\end{itemize}
+
+\subsection*{Closure of $\{\at{user\_id}, \at{ticker}\}$}
+
+\begin{derivation}
+  1. & \at{user\_id}, \at{ticker} \rightarrow \at{user\_id}, \at{ticker} & Reflexivity (A1) \\
+  2. & \at{user\_id}, \at{ticker} \rightarrow \at{quantity}, \at{average\_price} & Given ($FD_5$) \\
+  3. & \at{user\_id}, \at{ticker} \rightarrow \at{user\_id}, \at{ticker}, \at{quantity}, \at{average\_price} & Union (U) of 1 and 2 \\
+\end{derivation}
+
+\[
+  \cl{\at{user\_id}, \at{ticker}} = C_H
+\]
+So $\{\at{user\_id}, \at{ticker}\}$ is a superkey.
+
+\subsection*{Minimality}
+
+The proper subsets of $\{\at{user\_id}, \at{ticker}\}$ are $\emptyset$, $\{\at{user\_id}\}$ and $\{\at{ticker}\}$. None of them contains the left-hand side of $FD_5$, so by the no-fire lemma:
+\begin{align*}
+  \emptyset^+ &= \emptyset \neq C_H \\
+  \cl{\at{user\_id}} &= \{\at{user\_id}\} \neq C_H \\
+  \cl{\at{ticker}} &= \{\at{ticker}\} \neq C_H
+\end{align*}
+No proper subset is a superkey, so $\{\at{user\_id}, \at{ticker}\}$ is a candidate key. The FD $\at{user\_id} \rightarrow \at{name}, \at{email}$ belongs to \texttt{user}, not to $F_H$, and its right-hand side is not in $C_H$, so it adds nothing to $\cl{\at{user\_id}}$ here.
+
+\subsection*{No Other Candidate Keys}
+
+$\{\at{user\_id}, \at{ticker}\}$ is the only FD left-hand side. Any set $X$ missing $\at{user\_id}$ or $\at{ticker}$ has $X^+ = X \neq C_H$. Every superkey therefore contains both.
+
+\textbf{Candidate key:} $\{\at{user\_id}, \at{ticker}\}$ (the composite primary key).
+
+\textbf{Superkeys ($2^2 = 4$):} $\{\at{user\_id}, \at{ticker}\} \cup Y$ for every $Y \subseteq \{\at{quantity}, \at{average\_price}\}$.
+
+\section{Summary}
+
+\begin{center}
+\begin{tabular}{l l l r}
+  \textbf{Relation} & \textbf{FDs} & \textbf{Candidate keys} & \textbf{Superkeys} \\
+  \hline
+  \texttt{user} & $FD_1$, $FD_2$ & $\{\at{user\_id}\}$, $\{\at{email}\}$ & 6 \\
+  \texttt{stock} & $FD_3$ & $\{\at{ticker}\}$ & 16 \\
+  \texttt{transaction} & $FD_4$ & $\{\at{transaction\_id}\}$ & 64 \\
+  \texttt{holds} & $FD_5$ & $\{\at{user\_id}, \at{ticker}\}$ & 4 \\
+\end{tabular}
+\end{center}
+
+In every relation, the left-hand side of each FD is a candidate key, so it is a superkey. Every relation is therefore in BCNF.
+
+\end{document}
