@@ -14,7 +14,9 @@ CREATE TABLE `user`
     `name`    VARCHAR(100) NOT NULL,
     `email`   VARCHAR(255) NOT NULL,
     -- Key: no two distinct users share a user_id
-    CONSTRAINT `pk_user` PRIMARY KEY (`user_id`)
+    CONSTRAINT `pk_user` PRIMARY KEY (`user_id`),
+    -- Candidate key: an email address registers at most one account (email -> user_id)
+    CONSTRAINT `uq_user_email` UNIQUE (`email`)
 );
 
 -- -----------------------------------------------------
@@ -27,7 +29,11 @@ CREATE TABLE `stock` (
     `closing_price` DECIMAL(12, 4) NOT NULL,
     `exchange` VARCHAR(20) NOT NULL,
     -- Key: no two distinct stocks share a ticker
-    CONSTRAINT `pk_stock` PRIMARY KEY (`ticker`)
+    CONSTRAINT `pk_stock` PRIMARY KEY (`ticker`),
+    -- Domain: sigma_{opening_price <= 0}(Stock) = empty
+    CONSTRAINT `chk_stock_opening_price` CHECK (`opening_price` > 0),
+    -- Domain: sigma_{closing_price <= 0}(Stock) = empty
+    CONSTRAINT `chk_stock_closing_price` CHECK (`closing_price` > 0)
 );
 
 -- ----------------------------------------------------
@@ -73,5 +79,7 @@ CREATE TABLE `holds` (
     -- Referential integrity: pi_ticker(Holds) subset of pi_ticker(Stock)
     CONSTRAINT `fk_holds_stock` FOREIGN KEY (`ticker`) REFERENCES `stock` (`ticker`),
     -- Domain: sigma_{quantity < 0}(Holds) = empty
-    CONSTRAINT `chk_holds_quantity` CHECK (`quantity` >= 0)
+    CONSTRAINT `chk_holds_quantity` CHECK (`quantity` >= 0),
+    -- Domain: sigma_{average_price <= 0}(Holds) = empty
+    CONSTRAINT `chk_holds_average_price` CHECK (`average_price` > 0)
 );

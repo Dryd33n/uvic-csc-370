@@ -53,6 +53,15 @@ jobs:
             echo "Notice: sql/seed.sql not found. Skipping data seed test."
           fi
 
+      - name: Test SQL Constraints
+        run: |
+          # Each statement breaks one constraint and must be rejected with the
+          # expected error code; the script exits non-zero if any is accepted.
+          # Changes are rolled back, so the seed data is left as loaded.
+          echo "Executing sql/constraint_tests.sql..."
+          mysql -h 127.0.0.1 -P 3306 -u root -prootpassword -t project_db < sql/constraint_tests.sql
+          echo "All constraints rejected invalid data!"
+
       - name: Test SQL Sample Queries
         run: |
           if [ -f "sql/queries.sql" ]; then

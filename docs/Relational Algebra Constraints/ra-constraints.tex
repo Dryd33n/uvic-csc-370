@@ -107,6 +107,13 @@ No user can have multiple holding entries for the exact same stock ticker:
   \sigma_{h_1.\text{user\_id} = h_2.\text{user\_id} \;\land\; h_1.\text{ticker} = h_2.\text{ticker} \;\land\; (h_1.\text{quantity} \neq h_2.\text{quantity} \,\lor\, h_1.\text{average\_price} \neq h_2.\text{average\_price})}\left(\rho_{h_1}(\text{Holds}) \times \rho_{h_2}(\text{Holds})\right) = \emptyset
 \]
 
+\subsection{Candidate Key Uniqueness of \texttt{user.email}}
+
+An email address can register only one account, so \texttt{email} is a second candidate key of \texttt{user} (enforced as \texttt{UNIQUE}). No two distinct users can share the same \texttt{email}:
+\[
+  \sigma_{u_1.\text{email} = u_2.\text{email} \;\land\; (u_1.\text{user\_id} \neq u_2.\text{user\_id} \,\lor\, u_1.\text{name} \neq u_2.\text{name})}\left(\rho_{u_1}(\text{User}) \times \rho_{u_2}(\text{User})\right) = \emptyset
+\]
+
 \section{Domain \& Value-Range Constraints (\texttt{CHECK} Constraints)}
 
 Domain constraints restrict attribute values to valid business ranges using selection operations evaluated against the empty set ($\sigma_{\text{condition}}(R) = \emptyset$).
@@ -137,5 +144,21 @@ Transaction types must strictly be either \texttt{'buy'} or \texttt{'sell'}:
 Portfolio holding quantities cannot be negative ($\ge 0$):
 \[
   \sigma_{\text{quantity} < 0}(\text{Holds}) = \emptyset
+\]
+
+\subsection{Non-Positive Average Purchase Prices}
+
+The average price paid for a holding must strictly be positive ($> 0$):
+\[
+  \sigma_{\text{average\_price} \le 0}(\text{Holds}) = \emptyset
+\]
+
+\subsection{Non-Positive Stock Prices}
+
+Stock opening and closing prices must strictly be positive ($> 0$):
+\[
+  \sigma_{\text{opening\_price} \le 0}(\text{Stock}) = \emptyset
+  \qquad
+  \sigma_{\text{closing\_price} \le 0}(\text{Stock}) = \emptyset
 \]
 \end{document}

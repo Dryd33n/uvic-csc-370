@@ -129,7 +129,7 @@ Each step of the algorithm picks a violation $X \rightarrow Y$ and splits $R$ in
 
 \subsection*{Step 2: Remove $FD_3$}
 
-The FDs projected onto $U_1$ include $FD_3$, $FD_4$ and $FD_5$, since all their attributes lie in $U_1$. $\{\at{transaction\_id}\}$ is still the only key of $U_1$, so $FD_3$ still violates BCNF.
+The projection of $F$ onto $U_1$ has the minimal basis $FD_3$, $FD_4$ and $FD_5$ (split into single attributes), as computed in the \emph{Minimal Basis and FD Projection} document. $\{\at{transaction\_id}\}$ is still the only key of $U_1$, so $FD_3$ still violates BCNF.
 \begin{itemize}[leftmargin=*]
   \item \textbf{Violation:} $FD_3$: $\at{ticker} \rightarrow S$, with $\cl{\at{ticker}} = \{\at{ticker}\} \cup S$.
   \item \textbf{Split:}
@@ -142,7 +142,7 @@ The FDs projected onto $U_1$ include $FD_3$, $FD_4$ and $FD_5$, since all their 
 
 \subsection*{Step 3: Remove $FD_5$}
 
-The FDs projected onto $U_2$ include $FD_4$ and $FD_5$. In $U_2$, $\cl{\at{user\_id}, \at{ticker}} \cap U_2 = \{\at{user\_id}, \at{ticker}\} \cup P \neq U_2$, because it does not contain $\at{transaction\_id}$. So $FD_5$ still violates BCNF.
+The projection of $F$ onto $U_2$ has the minimal basis $FD_4$ and $FD_5$ (see the same document). In $U_2$, $\cl{\at{user\_id}, \at{ticker}} \cap U_2 = \{\at{user\_id}, \at{ticker}\} \cup P \neq U_2$, because it does not contain $\at{transaction\_id}$. So $FD_5$ still violates BCNF.
 \begin{itemize}[leftmargin=*]
   \item \textbf{Violation:} $FD_5$: $\at{user\_id}, \at{ticker} \rightarrow P$.
   \item \textbf{Split:}

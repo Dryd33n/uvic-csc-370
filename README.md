@@ -31,9 +31,9 @@ Needs [Docker Desktop](https://www.docker.com/products/docker-desktop/) running.
    docker compose exec db mysql -uroot -prootpassword -t stock_trading -e "SELECT 'user' AS tbl, COUNT(*) AS n FROM user UNION ALL SELECT 'stock', COUNT(*) FROM stock UNION ALL SELECT 'transaction', COUNT(*) FROM transaction UNION ALL SELECT 'holds', COUNT(*) FROM holds"
    ```
 
-4. Run the constraint tests. Each of the 10 statements in `sql/constraint_tests.sql` breaks a rule and should be rejected, so expect 10 `ERROR` lines; the counts printed at the end should still be 9 / 14 / 82 / 22. The file rolls back at the end, so it never changes the data.
+4. Run the constraint tests. Each of the 21 statements in `sql/constraint_tests.sql` breaks one constraint, and the test passes only if MySQL rejects it with the expected error code. Expect `22 | 22` passed (the extra check confirms the server runs in strict mode), and the counts printed at the end should still be 9 / 14 / 82 / 22. The file rolls back at the end, so it never changes the data. If any test fails, it ends with `ERROR 1644 ... Constraint tests failed`.
    ```
-   docker compose exec db sh -c "mysql -uroot -prootpassword --force -t stock_trading < /sql/constraint_tests.sql"
+   docker compose exec db sh -c "mysql -uroot -prootpassword -t stock_trading < /sql/constraint_tests.sql"
    ```
 
 Steps 2-4 print the warning `Using a password on the command line interface can be insecure`, which is expected. Step 3 should show `user` 9, `stock` 14, `transaction` 82, `holds` 22.
@@ -48,7 +48,7 @@ Steps 2-4 print the warning `Using a password on the command line interface can 
 mysql -u root -p < sql/ddl.sql
 mysql -u root -p < sql/seed.sql
 mysql -u root -p < sql/queries.sql
-mysql -u root -p --force stock_trading < sql/constraint_tests.sql
+mysql -u root -p -t stock_trading < sql/constraint_tests.sql
 ```
 
 To check, run the `SELECT` from step 5 in `mysql -u root -p stock_trading`. You should get the same counts.
@@ -60,7 +60,7 @@ To check, run the `SELECT` from step 5 in `mysql -u root -p stock_trading`. You 
 | `sql/ddl.sql` | Creates the `stock_trading` database and its tables |
 | `sql/seed.sql` | Sample data: 9 users, 14 stocks (NASDAQ, NYSE, TSX), 82 trades, current holdings |
 | `sql/queries.sql` | Demo queries: holdings, trade history, leaderboard, activity per stock, holds vs. trades check, users with no trades |
-| `sql/constraint_tests.sql` | 10 statements that break a rule and must be rejected (Goal 3 evidence); not run by CI |
+| `sql/constraint_tests.sql` | 21 statements that each break one constraint and must be rejected with the expected error code (Goal 3 evidence); run by CI |
 | `docs/erd.md`, `docs/schema.svg` | ER diagram and its explanation |
 | `docs/requirements.md` | Requirements (in progress) |
 | `docs/normalization.md` | Functional dependencies and BCNF check (in progress) |
@@ -68,7 +68,7 @@ To check, run the `SELECT` from step 5 in `mysql -u root -p stock_trading`. You 
 | `docs/dependency-preservation.md` | Next-sprint goal C draft: per-FD enforcement list and a BCNF vs 3NF example |
 | `docker-compose.yml` | MySQL 8.0 with `ddl.sql` and `seed.sql` loaded (see Run it) |
 | `sprints/` | Sprint reports and the next-sprint goal D draft |
-| `.github/workflows/main.yml` | CI: runs the three SQL files on MySQL 8.0 on every push to `main` |
+| `.github/workflows/main.yml` | CI: on every push to `main`, loads `ddl.sql` and `seed.sql` on MySQL 8.0, runs `constraint_tests.sql`, and runs `queries.sql` if it exists |
 
 ## AI use
 
