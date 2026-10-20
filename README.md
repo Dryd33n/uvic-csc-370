@@ -22,7 +22,7 @@ Needs [Docker Desktop](https://www.docker.com/products/docker-desktop/) running.
    ```
    docker compose up -d --wait
    ```
-2. Run the queries:
+2. Run the goal D queries. Each one in `sql/queries.sql` is written in relational algebra first (in the comment above it) and shows the result it should return. Expect three tables for Alice: her 4 positions valued at the closing price, the gain or loss on each, and her 14 trades.
    ```
    docker compose exec db sh -c "mysql -uroot -prootpassword -t stock_trading < /sql/queries.sql"
    ```
@@ -51,7 +51,7 @@ mysql -u root -p < sql/queries.sql
 mysql -u root -p -t stock_trading < sql/constraint_tests.sql
 ```
 
-To check, run the `SELECT` from step 5 in `mysql -u root -p stock_trading`. You should get the same counts.
+To check, run the `SELECT` from step 3 in `mysql -u root -p stock_trading`. You should get the same counts.
 
 ## Files
 
@@ -59,15 +59,15 @@ To check, run the `SELECT` from step 5 in `mysql -u root -p stock_trading`. You 
 | --- | --- |
 | `sql/ddl.sql` | Creates the `stock_trading` database and its tables |
 | `sql/seed.sql` | Sample data: 9 users, 14 stocks (NASDAQ, NYSE, TSX), 82 trades, current holdings |
-| `sql/queries.sql` | Demo queries: holdings, trade history, leaderboard, activity per stock, holds vs. trades check, users with no trades |
-| `sql/constraint_tests.sql` | 21 statements that each break one constraint and must be rejected with the expected error code (Goal 3 evidence); run by CI |
-| `docs/erd.md`, `docs/schema.svg` | ER diagram and its explanation |
-| `docs/requirements.md` | Requirements (in progress) |
-| `docs/normalization.md` | Functional dependencies and BCNF check (in progress) |
-| `docs/lossless-join.md`, `sql/lossless_check.sql` | Next-sprint goal B draft: chase tests and the SQL join-back check (runs in its own throwaway database) |
-| `docs/dependency-preservation.md` | Next-sprint goal C draft: per-FD enforcement list and a BCNF vs 3NF example |
+| `sql/queries.sql` | Goal D: portfolio value, gain/loss per position and trade history, each written in relational algebra and then SQL, with the expected results |
+| `sql/constraint_tests.sql` | 21 statements that each break one constraint and must be rejected with the expected error code, plus a strict-mode check; run by CI |
+| `docs/Candidate Keys/` | Goal A: functional dependencies, closures, superkeys and candidate keys, checked against `ddl.sql` (`.tex` and `.pdf`) |
+| `docs/Minimal Basis and FD Projection/` | Goal B: minimal basis, FD projection onto each table, dependency preservation |
+| `docs/Lossless Join Proof/` | Goal B: decomposition of the universal relation and the chase test |
+| `docs/Relational Algebra Constraints/` | Goal C: key, foreign key and domain constraints in relational algebra |
+| `docs/schema.svg` | ER diagram |
 | `docker-compose.yml` | MySQL 8.0 with `ddl.sql` and `seed.sql` loaded (see Run it) |
-| `sprints/` | Sprint reports and the next-sprint goal D draft |
+| `sprints/` | Sprint reports |
 | `.github/workflows/main.yml` | CI: on every push to `main`, loads `ddl.sql` and `seed.sql` on MySQL 8.0, runs `constraint_tests.sql`, and runs `queries.sql` if it exists |
 
 ## AI use
