@@ -234,7 +234,9 @@ BEGIN
 
     -- Locks the owner's row so two concurrent trades can't both pass the checks below.
     -- A missing portfolio leaves available_cash NULL; the FK then rejects the insert.
-    SELECT u.cash_balance INTO available_cash
+    -- MAX() always returns one row (portfolio_id is a key), so a missing portfolio
+    -- doesn't raise a "no data" warning ahead of the FK error.
+    SELECT MAX(u.cash_balance) INTO available_cash
     FROM `user` u
              JOIN `portfolio` p ON p.user_id = u.user_id
     WHERE p.portfolio_id = NEW.portfolio_id
