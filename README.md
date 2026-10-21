@@ -1,75 +1,138 @@
 # PaperTrade
 
-PaperTrade is a paper-trading (simulated, fake-money) stock trading app, built as the semester project for CSC 370 (Database Systems) at UVic. The course grades the database design, so this repo is mostly SQL and design documents.
+## Description
 
-All data in this repo is fictional.
+PaperTrade is a paper-trading (simulated, fake-money) stock trading app, built as the semester project for CSC 370 (Database Systems) at UVic. The course grades the database design, so this repo is mostly SQL and design documents. All data in it is fictional.
 
-## Current state
+Users sign up with $100,000 of paper cash, open portfolios (TFSA, RRSP, ...), and buy and sell stocks listed on NASDAQ, NYSE and TSX at historical daily prices. They can watch stocks with a price alert and place limit orders that execute later.
 
-The schema has 4 tables in `sql/ddl.sql` (`user`, `stock`, `transaction`, `holds`) with primary keys, foreign keys, `NOT NULL`, a `UNIQUE` email and `CHECK` constraints on quantities and prices. `sql/constraint_tests.sql` shows each of these rejecting invalid data. Portfolios, limit orders, watchlists and the leaderboard are planned for later sprints.
+The MySQL 8.0 schema (`sql/ddl.sql`) has 8 tables:
 
-## Run it
+| Table | Holds |
+|-------|-------|
+| `user` | Accounts and uninvested cash |
+| `portfolio` | Trading accounts owned by a user |
+| `exchange` | Stock exchanges (lookup) |
+| `stock` | Listed equities |
+| `stock_price_history` | Daily open / close / high / low / volume (weak entity of `stock`) |
+| `watchlist` | Stocks a user watches, with an optional target price (M : N) |
+| `transaction` | Immutable ledger of executed trades |
+| `limit_order` | Pending, executed and cancelled orders |
 
-You need MySQL 8.0. The steps run `sql/ddl.sql`, `sql/seed.sql` and `sql/queries.sql` in that order.
+Besides keys, foreign keys and `CHECK`s, the database enforces the trading rules with triggers. A buy can't cost more than the user's cash, a sell can't exceed the shares held, trades update the cash balance and can't be edited or deleted, and executing a limit order records the matching trade. Every rule has an ID (C.x.y) used across the SQL and the documents.
 
-> `sql/ddl.sql` starts with `DROP DATABASE IF EXISTS stock_trading;`. Don't run it against a server that holds a `stock_trading` database you want to keep.
+## Important documents
 
-### Option A: Docker (all platforms; use this on Windows)
+| Document | What it covers | Status |
+|----------|----------------|--------|
+| [Schemata Overview](docs/Schemata%20Overview/schemata.md) | Every table's attributes, keys, constraints and relationships; the reference for the C.x.y IDs | Current |
+| [ERD](docs/ERD/papertrade_erd.pdf) | Entity-relationship diagram | Current |
+| [Relational Algebra Constraints](docs/Relational%20Algebra%20Constraints/ra-constraints.pdf) | Goal C: each constraint as a subset or empty-set expression, with a linked glossary | Current |
+| [Candidate Keys](docs/Candidate%20Keys/candidate-keys.pdf) | Goal A: functional dependencies, closures, candidate keys and superkeys per table; BCNF | Current |
+| [Minimal Basis and FD Projection](docs/Minimal%20Basis%20and%20FD%20Projection/fd-projection.pdf) | Goal B: minimal basis, FD projection, dependency preservation | Old 4-table schema |
+| [Lossless Join Proof](docs/Lossless%20Join%20Proof/losslessjoin.pdf) | Goal B: decomposition of the universal relation and the chase test | Old 4-table schema |
+| [Seed generator guide](tools/README.md) | How to generate `sql/seed.sql` | Current |
+| [Sprint reports](sprints/) | Sprint planning and reports | |
+| [AI use](AI_USE.md) | Where generative AI was used and how we checked it | |
 
-Needs [Docker Desktop](https://www.docker.com/products/docker-desktop/) running. Open a terminal in the repo root and run these one at a time. They are the same on Windows (PowerShell or Command Prompt), macOS and Linux. On Windows, don't use Git Bash: it rewrites the `/sql` paths.
+Each document in `docs/` has its LaTeX source (`.tex`) next to the PDF.
 
-1. Start MySQL 8.0, then create the schema and load the sample data (`docker-compose.yml` runs `sql/ddl.sql` and then `sql/seed.sql`). This returns when the database is ready, after about 20-60 seconds; the first run also downloads the image.
-   ```
-   docker compose up -d --wait
-   ```
-2. Run the goal D queries. Each one in `sql/queries.sql` is written in relational algebra first (in the comment above it) and shows the result it should return. Expect three tables for Alice: her 4 positions valued at the closing price, the gain or loss on each, and her 14 trades.
-   ```
-   docker compose exec db sh -c "mysql -uroot -prootpassword -t stock_trading < /sql/queries.sql"
-   ```
-3. Check the row counts:
-   ```
-   docker compose exec db mysql -uroot -prootpassword -t stock_trading -e "SELECT 'user' AS tbl, COUNT(*) AS n FROM user UNION ALL SELECT 'stock', COUNT(*) FROM stock UNION ALL SELECT 'transaction', COUNT(*) FROM transaction UNION ALL SELECT 'holds', COUNT(*) FROM holds"
-   ```
+## Usage
 
-4. Run the constraint tests. Each of the 21 statements in `sql/constraint_tests.sql` breaks one constraint, and the test passes only if MySQL rejects it with the expected error code. Expect `22 | 22` passed (the extra check confirms the server runs in strict mode), and the counts printed at the end should still be 9 / 14 / 82 / 22. The file rolls back at the end, so it never changes the data. If any test fails, it ends with `ERROR 1644 ... Constraint tests failed`.
-   ```
-   docker compose exec db sh -c "mysql -uroot -prootpassword -t stock_trading < /sql/constraint_tests.sql"
-   ```
+### Files
 
-Steps 2-4 print the warning `Using a password on the command line interface can be insecure`, which is expected. Step 3 should show `user` 9, `stock` 14, `transaction` 82, `holds` 22.
+| Path | What it is |
+|------|------------|
+| `sql/ddl.sql` | Creates the `stock_trading` database: tables, constraints and triggers |
+| `sql/seed.sql` | Sample data, generated by `tools/generate_seed.py` |
+| `sql/queries.sql` | Goal D queries, each in relational algebra and then SQL (old schema, being rewritten) |
+| `sql/constraint_tests.sql` | Statements that each break one constraint and must be rejected (old schema, being rewritten) |
+| `tools/generate_seed.py` | Seed data generator: CLI, plus an interactive TUI with `--tui` |
+| `docker-compose.yml` | MySQL 8.0 with `ddl.sql` and `seed.sql` loaded |
+| `.github/workflows/main.yml` | CI: loads `ddl.sql` and `seed.sql` on MySQL 8.0, then runs the constraint tests and queries |
 
-- **Step 1 fails** (for example `container papertrade-db exited`): an SQL file has an error. Run `docker compose logs db` to find it, fix the file, then reset as below.
-- **After you edit `sql/ddl.sql` or `sql/seed.sql`:** the files only load when the database is first created. Run `docker compose down -v` to delete it, then step 1 again. Edits to `queries.sql` or `constraint_tests.sql` need no reset.
-- **When you're done:** `docker compose down -v` deletes the container and its data.
+> `sql/queries.sql` and `sql/constraint_tests.sql` still target the old 4-table schema (`holds`, `transaction.user_id`). They fail against the current schema until they're rewritten, and so does CI.
 
-### Option B: a local MySQL 8.0 server (macOS / Linux)
+### 1. Start the database
+
+You need MySQL 8.0. `sql/ddl.sql` starts with `DROP DATABASE IF EXISTS stock_trading;`, so don't run it against a server whose `stock_trading` database you want to keep.
+
+**Option A: Docker (all platforms; use this on Windows).** Needs [Docker Desktop](https://www.docker.com/products/docker-desktop/) running. Run these from the repo root in PowerShell, Command Prompt or a macOS/Linux shell. On Windows, don't use Git Bash, which rewrites the `/sql` paths.
+
+```
+docker compose up -d --wait
+```
+
+This creates the schema and loads the seed data (`ddl.sql`, then `seed.sql`), and returns once the database is ready (20–60 seconds; the first run also downloads the image).
+
+**Option B: a local MySQL 8.0 server.**
 
 ```bash
 mysql -u root -p < sql/ddl.sql
 mysql -u root -p < sql/seed.sql
-mysql -u root -p < sql/queries.sql
-mysql -u root -p -t stock_trading < sql/constraint_tests.sql
 ```
 
-To check, run the `SELECT` from step 3 in `mysql -u root -p stock_trading`. You should get the same counts.
+### 2. Check the data
 
-## Files
+```
+docker compose exec db mysql -uroot -prootpassword -t stock_trading -e "SELECT 'exchange' t, COUNT(*) n FROM exchange UNION ALL SELECT 'stock', COUNT(*) FROM stock UNION ALL SELECT 'stock_price_history', COUNT(*) FROM stock_price_history UNION ALL SELECT 'user', COUNT(*) FROM user UNION ALL SELECT 'portfolio', COUNT(*) FROM portfolio UNION ALL SELECT 'watchlist', COUNT(*) FROM watchlist UNION ALL SELECT 'transaction', COUNT(*) FROM transaction UNION ALL SELECT 'limit_order', COUNT(*) FROM limit_order"
+```
 
-| Path | What it is |
-| --- | --- |
-| `sql/ddl.sql` | Creates the `stock_trading` database and its tables |
-| `sql/seed.sql` | Sample data: 9 users, 14 stocks (NASDAQ, NYSE, TSX), 82 trades, current holdings |
-| `sql/queries.sql` | Goal D: portfolio value, gain/loss per position and trade history, each written in relational algebra and then SQL, with the expected results |
-| `sql/constraint_tests.sql` | 21 statements that each break one constraint and must be rejected with the expected error code, plus a strict-mode check; run by CI |
-| `docs/Candidate Keys/` | Goal A: functional dependencies, closures, superkeys and candidate keys, checked against `ddl.sql` (`.tex` and `.pdf`) |
-| `docs/Minimal Basis and FD Projection/` | Goal B: minimal basis, FD projection onto each table, dependency preservation |
-| `docs/Lossless Join Proof/` | Goal B: decomposition of the universal relation and the chase test |
-| `docs/Relational Algebra Constraints/` | Goal C: key, foreign key and domain constraints in relational algebra |
-| `docs/schema.svg` | ER diagram |
-| `docker-compose.yml` | MySQL 8.0 with `ddl.sql` and `seed.sql` loaded (see Run it) |
-| `sprints/` | Sprint reports |
-| `.github/workflows/main.yml` | CI: on every push to `main`, loads `ddl.sql` and `seed.sql` on MySQL 8.0, runs `constraint_tests.sql`, and runs `queries.sql` if it exists |
+With the default seed, expect: `exchange` 3, `stock` 14, `stock_price_history` 840, `user` 12, `portfolio` 28, `watchlist` 35, `transaction` 206 (203 inserted, plus 3 created by executed limit orders), `limit_order` 29. The counts for any other seed are in the header of `sql/seed.sql`. For a local server, run the same `SELECT` in `mysql -u root -p stock_trading`.
+
+Docker commands that pass a password print `Using a password on the command line interface can be insecure`, which is expected.
+
+### 3. Run the queries and constraint tests
+
+```
+docker compose exec db sh -c "mysql -uroot -prootpassword -t stock_trading < /sql/queries.sql"
+docker compose exec db sh -c "mysql -uroot -prootpassword -t stock_trading < /sql/constraint_tests.sql"
+```
+
+Locally: `mysql -u root -p -t stock_trading < sql/queries.sql`, and the same for `constraint_tests.sql`. Each constraint test passes only if MySQL rejects its statement with the expected error code. The file rolls back at the end, so the data is unchanged, and it ends with `ERROR 1644 ... Constraint tests failed` if any test fails. Both files are still on the old schema (see the note above).
+
+### 4. Generate seed data
+
+`sql/seed.sql` is generated, not hand-written. Regenerate it with Python 3.9+ (`py` on Windows, `python3` elsewhere):
+
+```
+py tools/generate_seed.py                                  # defaults -> sql/seed.sql
+py tools/generate_seed.py --users 50 --days 120 --seed 7   # a larger data set
+py tools/generate_seed.py -h                               # all options
+```
+
+The same options always give the same file. The generator replays every trade against the user's cash and the portfolio's holdings, so the data always passes the triggers.
+
+For an interactive editor with a live preview of the SQL, install Textual once and add `--tui`:
+
+```
+py -m pip install -r tools/requirements.txt
+py tools/generate_seed.py --tui
+```
+
+![Seed generator TUI](docs/images/seed-tui.png)
+
+Options are on the left. On the right are row counts per table, activity charts, a syntax-highlighted SQL preview and the equivalent CLI command. Press Ctrl+S to write the file. See the [seed generator guide](tools/README.md) for every option.
+
+### 5. Reload after changes
+
+`ddl.sql` and `seed.sql` only load when the Docker database is first created. After editing either one (or regenerating the seed), reset and start again:
+
+```
+docker compose down -v
+docker compose up -d --wait
+```
+
+Edits to `queries.sql` or `constraint_tests.sql` need no reset. If startup fails (e.g. `container papertrade-db exited`), an SQL file has an error: `docker compose logs db` shows it. `docker compose down -v` also deletes the container and its data when you're done.
+
+### 6. Build the documents
+
+The PDFs are committed, so this is only needed after editing a `.tex` file. With a TeX distribution (e.g. TeX Live), from that document's folder:
+
+```
+latexmk -pdf ra-constraints.tex
+```
 
 ## AI use
 
-See `AI_USE.md`.
+See [AI_USE.md](AI_USE.md).
