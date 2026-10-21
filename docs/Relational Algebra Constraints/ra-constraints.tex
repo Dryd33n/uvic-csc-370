@@ -1,10 +1,17 @@
 \documentclass{article}
 \usepackage[legalpaper, portrait, margin=0.5in]{geometry}
-\usepackage{amsmath, amssymb, amsthm} 
-\usepackage{hyperref} 
-\usepackage{enumitem} 
-\usepackage{microtype} 
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{microtype}
 \hypersetup{ colorlinks=true, linkcolor=blue, urlcolor=blue }
+
+% Link to a constraint: \cl{1.4} -> C.1.4
+\newcommand{\cl}[1]{\hyperref[c:#1]{C.#1}}
+% Constraint heading and link target: \constraint{1.4}{Valid email format}
+\newcommand{\constraint}[2]{\phantomsection\label{c:#1}\subsection*{C.#1\quad #2}}
 
 \title{CSC 370 PaperTrade, Relational Algebra Constraints}
 \author{Dryden Bryson}
@@ -17,148 +24,230 @@
 
 \section*{Overview}
 
-This document formalizes the domain, primary key, and referential integrity (foreign key) constraints for the \texttt{stock\_trading} database using Relational Algebra expressions.
-
-\section{Referential Integrity Constraints (Foreign Keys)}
-
-Referential integrity constraints prevent orphaned records by ensuring that foreign key values in child relations correspond to existing primary keys in parent relations. In relational algebra, these are expressed as subset inclusions ($\pi_{FK}(R_1) \subseteq \pi_{PK}(R_2)$) or set difference empty-set equations ($\pi_{FK}(R_1) \setminus \pi_{PK}(R_2) = \emptyset$).
-
-\subsection{\texttt{transaction.user\_id} \texorpdfstring{$\rightarrow$}{->} \texttt{user.user\_id}}
-
-Every transaction must belong to a registered user.
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Subset Inclusion:}
-  \[
-    \pi_{\text{user\_id}}(\text{Transaction}) \subseteq \pi_{\text{user\_id}}(\text{User})
-  \]
-  \item \textbf{Set Difference (Empty-Set):}
-  \[
-    \pi_{\text{user\_id}}(\text{Transaction}) \setminus \pi_{\text{user\_id}}(\text{User}) = \emptyset
-  \]
+This document gives the relational algebra form of the \texttt{stock\_trading} constraints. Constraint IDs match \texttt{docs/Schemata Overview/schemata.md} and the comments in \texttt{sql/ddl.sql}. Each constraint is written in one of two forms:
+\begin{itemize}[nosep]
+  \item \textbf{Subset} ($\subseteq$): referential integrity, where every value in one relation must appear in another.
+  \item \textbf{Empty set} ($= \emptyset$): domain rules, where selecting the violating tuples must return nothing.
 \end{itemize}
 
-\subsection{\texttt{transaction.ticker} \texorpdfstring{$\rightarrow$}{->} \texttt{stock.ticker}}
+Constraints with no meaningful relational algebra form are left out. These are: primary keys and \texttt{UNIQUE} (covered in the Candidate Keys document); \texttt{NOT NULL}; \texttt{DEFAULT}s; \texttt{ON DELETE} actions; and rules about how the database may change, which the triggers enforce rather than a property of a single state (C.7.6--C.7.9, C.8.6, C.8.8).
 
-Every transaction must reference an existing stock ticker.
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Subset Inclusion:}
-  \[
-    \pi_{\text{ticker}}(\text{Transaction}) \subseteq \pi_{\text{ticker}}(\text{Stock})
-  \]
-  \item \textbf{Set Difference (Empty-Set):}
-  \[
-    \pi_{\text{ticker}}(\text{Transaction}) \setminus \pi_{\text{ticker}}(\text{Stock}) = \emptyset
-  \]
+\section*{Glossary}
+
+\begin{longtable}{@{}l l l c@{}}
+\toprule
+\textbf{ID} & \textbf{Relation} & \textbf{Constraint} & \textbf{Form} \\
+\midrule
+\endhead
+\cl{1.4}  & User              & Email has a valid format                         & $=\emptyset$ \\
+\cl{1.5}  & User              & Cash balance is non-negative                     & $=\emptyset$ \\
+\midrule
+\cl{2.2}  & Portfolio         & Owner exists                                     & $\subseteq$ \\
+\cl{2.5}  & Portfolio         & Name is non-empty                                & $=\emptyset$ \\
+\midrule
+\cl{3.3}  & Exchange          & Currency is a 3-letter code                      & $=\emptyset$ \\
+\cl{3.4}  & Exchange          & Exchange code is uppercase                       & $=\emptyset$ \\
+\midrule
+\cl{4.2}  & Stock             & Exchange exists                                  & $\subseteq$ \\
+\cl{4.4}  & Stock             & Ticker is uppercase                              & $=\emptyset$ \\
+\midrule
+\cl{5.2}  & StockPriceHistory & Stock exists                                     & $\subseteq$ \\
+\cl{5.3}  & StockPriceHistory & Prices are positive                              & $=\emptyset$ \\
+\cl{5.4}  & StockPriceHistory & High is at least low                             & $=\emptyset$ \\
+\cl{5.5}  & StockPriceHistory & Open and close lie within low--high              & $=\emptyset$ \\
+\cl{5.6}  & StockPriceHistory & Volume is non-negative                           & $=\emptyset$ \\
+\cl{5.7}  & StockPriceHistory & Price date is not in the future                  & $=\emptyset$ \\
+\midrule
+\cl{6.2}  & Watchlist         & User exists                                      & $\subseteq$ \\
+\cl{6.3}  & Watchlist         & Stock exists                                     & $\subseteq$ \\
+\cl{6.4}  & Watchlist         & Target price, if set, is positive                & $=\emptyset$ \\
+\midrule
+\cl{7.2}  & Transaction       & Portfolio and stock exist                        & $\subseteq$ \\
+\cl{7.3}  & Transaction       & Quantity is positive                             & $=\emptyset$ \\
+\cl{7.4}  & Transaction       & Price is positive                                & $=\emptyset$ \\
+\cl{7.5}  & Transaction       & Type is buy or sell                              & $=\emptyset$ \\
+\cl{7.10} & Transaction       & Execution time is not in the future              & $=\emptyset$ \\
+\midrule
+\cl{8.2}  & LimitOrder        & Portfolio and stock exist                        & $\subseteq$ \\
+\cl{8.3}  & LimitOrder        & Target price and quantity are positive           & $=\emptyset$ \\
+\cl{8.4}  & LimitOrder        & Type is buy or sell                              & $=\emptyset$ \\
+\cl{8.7}  & LimitOrder        & Every executed order has a matching transaction  & $\subseteq$ \\
+\bottomrule
+\end{longtable}
+
+\newpage
+
+% -----------------------------------------------------
+\section{\texttt{user}}
+
+\begin{itemize}[nosep]
+  \item \cl{1.4} Email has a valid format
+  \item \cl{1.5} Cash balance is non-negative
 \end{itemize}
 
-\subsection{\texttt{holds.user\_id} \texorpdfstring{$\rightarrow$}{->} \texttt{user.user\_id}}
+\constraint{1.4}{Email has a valid format}
+Contains \texttt{@} and a domain.
+\[ \sigma_{\text{email} \text{ NOT LIKE } \text{'\%\_@\_\%.\_\%'}}(\text{User}) = \emptyset \]
 
-Every stock holding record must reference a valid user.
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Subset Inclusion:}
-  \[
-    \pi_{\text{user\_id}}(\text{Holds}) \subseteq \pi_{\text{user\_id}}(\text{User})
-  \]
+\constraint{1.5}{Cash balance is non-negative}
+A user can't spend money they don't have.
+\[ \sigma_{\text{cash\_balance} < 0}(\text{User}) = \emptyset \]
+
+% -----------------------------------------------------
+\section{\texttt{portfolio}}
+
+\begin{itemize}[nosep]
+  \item \cl{2.2} Owner exists
+  \item \cl{2.5} Name is non-empty
 \end{itemize}
 
-\subsection{\texttt{holds.ticker} \texorpdfstring{$\rightarrow$}{->} \texttt{stock.ticker}}
+\constraint{2.2}{Owner exists}
+Every portfolio belongs to a registered user.
+\[ \pi_{\text{user\_id}}(\text{Portfolio}) \subseteq \pi_{\text{user\_id}}(\text{User}) \]
 
-Every stock holding record must reference a valid stock ticker.
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Subset Inclusion:}
-  \[
-    \pi_{\text{ticker}}(\text{Holds}) \subseteq \pi_{\text{ticker}}(\text{Stock})
-  \]
+\constraint{2.5}{Name is non-empty}
+\[ \sigma_{\text{portfolio\_name} = \text{''}}(\text{Portfolio}) = \emptyset \]
+
+% -----------------------------------------------------
+\section{\texttt{exchange}}
+
+\begin{itemize}[nosep]
+  \item \cl{3.3} Currency is a 3-letter code
+  \item \cl{3.4} Exchange code is uppercase
 \end{itemize}
 
-\section{Key \& Uniqueness Constraints}
+\constraint{3.3}{Currency is a 3-letter code}
+ISO 4217, e.g.\ \texttt{USD}, \texttt{CAD}.
+\[ \sigma_{\text{CHAR\_LENGTH}(\text{currency}) \neq 3}(\text{Exchange}) = \emptyset \]
 
-Key constraints ensure that primary keys uniquely identify tuples without duplicates. A set of attributes $K$ is a key of $R$ if no two distinct tuples of $R$ agree on $K$. Since a relation is a set, two tuples are distinct exactly when they differ in at least one attribute. Because they already agree on $K$, they must differ in some attribute outside $K$. So for a relation $R$ with key $K$ and non-key attributes $A_1, \dots, A_n$, the key constraint is:
-\[
-  \sigma_{r_1.K = r_2.K \;\land\; (r_1.A_1 \neq r_2.A_1 \,\lor\, \cdots \,\lor\, r_1.A_n \neq r_2.A_n)}\left(\rho_{r_1}(R) \times \rho_{r_2}(R)\right) = \emptyset
-\]
-Every non-key attribute must appear in the disjunction. If one is left out, two tuples with the same key that differ only in that attribute would not be selected, and the duplicate key would go undetected.
+\constraint{3.4}{Exchange code is uppercase}
+Compared case-sensitively.
+\[ \sigma_{\text{exchange\_code} \neq \text{UPPER}(\text{exchange\_code})}(\text{Exchange}) = \emptyset \]
 
-\subsection{Uniqueness of \texttt{user.user\_id}}
+% -----------------------------------------------------
+\section{\texttt{stock}}
 
-No two distinct users can share the same \texttt{user\_id}:
-\[
-  \sigma_{u_1.\text{user\_id} = u_2.\text{user\_id} \;\land\; (u_1.\text{name} \neq u_2.\text{name} \,\lor\, u_1.\text{email} \neq u_2.\text{email})}\left(\rho_{u_1}(\text{User}) \times \rho_{u_2}(\text{User})\right) = \emptyset
-\]
+\begin{itemize}[nosep]
+  \item \cl{4.2} Exchange exists
+  \item \cl{4.4} Ticker is uppercase
+\end{itemize}
 
-\subsection{Uniqueness of \texttt{stock.ticker}}
+\constraint{4.2}{Exchange exists}
+Every stock is listed on a known exchange.
+\[ \pi_{\text{exchange\_code}}(\text{Stock}) \subseteq \pi_{\text{exchange\_code}}(\text{Exchange}) \]
 
-No two distinct stocks can share the same \texttt{ticker}:
-\[
-  \sigma_{\substack{s_1.\text{ticker} = s_2.\text{ticker} \;\land\; (s_1.\text{company\_name} \neq s_2.\text{company\_name} \,\lor\, s_1.\text{opening\_price} \neq s_2.\text{opening\_price} \\ \lor\, s_1.\text{closing\_price} \neq s_2.\text{closing\_price} \,\lor\, s_1.\text{exchange} \neq s_2.\text{exchange})}}\left(\rho_{s_1}(\text{Stock}) \times \rho_{s_2}(\text{Stock})\right) = \emptyset
-\]
+\constraint{4.4}{Ticker is uppercase}
+Compared case-sensitively.
+\[ \sigma_{\text{ticker} \neq \text{UPPER}(\text{ticker})}(\text{Stock}) = \emptyset \]
 
-\subsection{Uniqueness of \texttt{transaction.transaction\_id}}
+% -----------------------------------------------------
+\section{\texttt{stock\_price\_history}}
 
-No two distinct transactions can share the same \texttt{transaction\_id}:
-\[
-  \sigma_{\substack{t_1.\text{transaction\_id} = t_2.\text{transaction\_id} \;\land\; (t_1.\text{user\_id} \neq t_2.\text{user\_id} \,\lor\, t_1.\text{ticker} \neq t_2.\text{ticker} \\ \lor\, t_1.\text{transaction\_type} \neq t_2.\text{transaction\_type} \,\lor\, t_1.\text{quantity} \neq t_2.\text{quantity} \\ \lor\, t_1.\text{price} \neq t_2.\text{price} \,\lor\, t_1.\text{time} \neq t_2.\text{time})}}\left(\rho_{t_1}(\text{Transaction}) \times \rho_{t_2}(\text{Transaction})\right) = \emptyset
-\]
+\begin{itemize}[nosep]
+  \item \cl{5.2} Stock exists
+  \item \cl{5.3} Prices are positive
+  \item \cl{5.4} High is at least low
+  \item \cl{5.5} Open and close lie within low--high
+  \item \cl{5.6} Volume is non-negative
+  \item \cl{5.7} Price date is not in the future
+\end{itemize}
 
-\subsection{Composite Key Uniqueness of \texttt{holds(user\_id, ticker)}}
+\constraint{5.2}{Stock exists}
+A price record can't exist without its stock (weak entity).
+\[ \pi_{\text{ticker}}(\text{StockPriceHistory}) \subseteq \pi_{\text{ticker}}(\text{Stock}) \]
 
-No user can have multiple holding entries for the exact same stock ticker:
-\[
-  \sigma_{h_1.\text{user\_id} = h_2.\text{user\_id} \;\land\; h_1.\text{ticker} = h_2.\text{ticker} \;\land\; (h_1.\text{quantity} \neq h_2.\text{quantity} \,\lor\, h_1.\text{average\_price} \neq h_2.\text{average\_price})}\left(\rho_{h_1}(\text{Holds}) \times \rho_{h_2}(\text{Holds})\right) = \emptyset
-\]
+\constraint{5.3}{Prices are positive}
+\[ \sigma_{\text{opening\_price} \le 0 \,\lor\, \text{closing\_price} \le 0 \,\lor\, \text{high\_price} \le 0 \,\lor\, \text{low\_price} \le 0}(\text{StockPriceHistory}) = \emptyset \]
 
-\subsection{Candidate Key Uniqueness of \texttt{user.email}}
+\constraint{5.4}{High is at least low}
+\[ \sigma_{\text{high\_price} < \text{low\_price}}(\text{StockPriceHistory}) = \emptyset \]
 
-An email address can register only one account, so \texttt{email} is a second candidate key of \texttt{user} (enforced as \texttt{UNIQUE}). No two distinct users can share the same \texttt{email}:
-\[
-  \sigma_{u_1.\text{email} = u_2.\text{email} \;\land\; (u_1.\text{user\_id} \neq u_2.\text{user\_id} \,\lor\, u_1.\text{name} \neq u_2.\text{name})}\left(\rho_{u_1}(\text{User}) \times \rho_{u_2}(\text{User})\right) = \emptyset
-\]
+\constraint{5.5}{Open and close lie within low--high}
+\[ \sigma_{\text{opening\_price} < \text{low\_price} \,\lor\, \text{opening\_price} > \text{high\_price} \,\lor\, \text{closing\_price} < \text{low\_price} \,\lor\, \text{closing\_price} > \text{high\_price}}(\text{StockPriceHistory}) = \emptyset \]
 
-\section{Domain \& Value-Range Constraints (\texttt{CHECK} Constraints)}
+\constraint{5.6}{Volume is non-negative}
+\[ \sigma_{\text{volume} < 0}(\text{StockPriceHistory}) = \emptyset \]
 
-Domain constraints restrict attribute values to valid business ranges using selection operations evaluated against the empty set ($\sigma_{\text{condition}}(R) = \emptyset$).
+\constraint{5.7}{Price date is not in the future}
+Evaluated against the current date; enforced by trigger.
+\[ \sigma_{\text{price\_date} > \text{CURDATE}()}(\text{StockPriceHistory}) = \emptyset \]
 
-\subsection{Non-Positive Transaction Quantities}
+% -----------------------------------------------------
+\section{\texttt{watchlist}}
 
-Transaction quantities must strictly be positive ($> 0$):
-\[
-  \sigma_{\text{quantity} \le 0}(\text{Transaction}) = \emptyset
-\]
+\begin{itemize}[nosep]
+  \item \cl{6.2} User exists
+  \item \cl{6.3} Stock exists
+  \item \cl{6.4} Target price, if set, is positive
+\end{itemize}
 
-\subsection{Non-Positive Execution Prices}
+\constraint{6.2}{User exists}
+\[ \pi_{\text{user\_id}}(\text{Watchlist}) \subseteq \pi_{\text{user\_id}}(\text{User}) \]
 
-Transaction execution prices must strictly be positive ($> 0$):
-\[
-  \sigma_{\text{price} \le 0}(\text{Transaction}) = \emptyset
-\]
+\constraint{6.3}{Stock exists}
+\[ \pi_{\text{ticker}}(\text{Watchlist}) \subseteq \pi_{\text{ticker}}(\text{Stock}) \]
 
-\subsection{Restricted Transaction Types}
+\constraint{6.4}{Target price, if set, is positive}
+\texttt{NULL} means no alert and is allowed.
+\[ \sigma_{\text{target\_price} \neq \text{NULL} \,\land\, \text{target\_price} \le 0}(\text{Watchlist}) = \emptyset \]
 
-Transaction types must strictly be either \texttt{'buy'} or \texttt{'sell'}:
-\[
-  \sigma_{\text{transaction\_type} \notin \{\text{'buy'}, \text{'sell'}\}}(\text{Transaction}) = \emptyset
-\]
+% -----------------------------------------------------
+\section{\texttt{transaction}}
 
-\subsection{Negative Stock Holdings Quantity}
+\begin{itemize}[nosep]
+  \item \cl{7.2} Portfolio and stock exist
+  \item \cl{7.3} Quantity is positive
+  \item \cl{7.4} Price is positive
+  \item \cl{7.5} Type is buy or sell
+  \item \cl{7.10} Execution time is not in the future
+\end{itemize}
 
-Portfolio holding quantities cannot be negative ($\ge 0$):
-\[
-  \sigma_{\text{quantity} < 0}(\text{Holds}) = \emptyset
-\]
+\constraint{7.2}{Portfolio and stock exist}
+\begin{gather*}
+  \pi_{\text{portfolio\_id}}(\text{Transaction}) \subseteq \pi_{\text{portfolio\_id}}(\text{Portfolio}) \\
+  \pi_{\text{ticker}}(\text{Transaction}) \subseteq \pi_{\text{ticker}}(\text{Stock})
+\end{gather*}
 
-\subsection{Non-Positive Average Purchase Prices}
+\constraint{7.3}{Quantity is positive}
+\[ \sigma_{\text{quantity} \le 0}(\text{Transaction}) = \emptyset \]
 
-The average price paid for a holding must strictly be positive ($> 0$):
-\[
-  \sigma_{\text{average\_price} \le 0}(\text{Holds}) = \emptyset
-\]
+\constraint{7.4}{Price is positive}
+\[ \sigma_{\text{price} \le 0}(\text{Transaction}) = \emptyset \]
 
-\subsection{Non-Positive Stock Prices}
+\constraint{7.5}{Type is buy or sell}
+\[ \sigma_{\text{transaction\_type} \notin \{\text{'buy'}, \text{'sell'}\}}(\text{Transaction}) = \emptyset \]
 
-Stock opening and closing prices must strictly be positive ($> 0$):
-\[
-  \sigma_{\text{opening\_price} \le 0}(\text{Stock}) = \emptyset
-  \qquad
-  \sigma_{\text{closing\_price} \le 0}(\text{Stock}) = \emptyset
-\]
+\constraint{7.10}{Execution time is not in the future}
+Evaluated against the current time; enforced by trigger.
+\[ \sigma_{\text{executed\_at} > \text{NOW}()}(\text{Transaction}) = \emptyset \]
+
+% -----------------------------------------------------
+\section{\texttt{limit\_order}}
+
+\begin{itemize}[nosep]
+  \item \cl{8.2} Portfolio and stock exist
+  \item \cl{8.3} Target price and quantity are positive
+  \item \cl{8.4} Type is buy or sell
+  \item \cl{8.7} Every executed order has a matching transaction
+\end{itemize}
+
+\constraint{8.2}{Portfolio and stock exist}
+\begin{gather*}
+  \pi_{\text{portfolio\_id}}(\text{LimitOrder}) \subseteq \pi_{\text{portfolio\_id}}(\text{Portfolio}) \\
+  \pi_{\text{ticker}}(\text{LimitOrder}) \subseteq \pi_{\text{ticker}}(\text{Stock})
+\end{gather*}
+
+\constraint{8.3}{Target price and quantity are positive}
+\[ \sigma_{\text{target\_price} \le 0 \,\lor\, \text{quantity} \le 0}(\text{LimitOrder}) = \emptyset \]
+
+\constraint{8.4}{Type is buy or sell}
+\[ \sigma_{\text{order\_type} \notin \{\text{'buy'}, \text{'sell'}\}}(\text{LimitOrder}) = \emptyset \]
+
+\constraint{8.7}{Every executed order has a matching transaction}
+The trade is recorded at the order's target price. Transaction attributes are renamed to match.
+\begin{align*}
+  &\pi_{\text{portfolio\_id},\, \text{ticker},\, \text{order\_type},\, \text{quantity},\, \text{target\_price}}\bigl(\sigma_{\text{status} = \text{'executed'}}(\text{LimitOrder})\bigr) \\
+  &\quad\subseteq \rho_{(\text{portfolio\_id},\, \text{ticker},\, \text{order\_type},\, \text{quantity},\, \text{target\_price})}\bigl(\pi_{\text{portfolio\_id},\, \text{ticker},\, \text{transaction\_type},\, \text{quantity},\, \text{price}}(\text{Transaction})\bigr)
+\end{align*}
+
 \end{document}
