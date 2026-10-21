@@ -6,3 +6,4 @@
 *.aux
 *.fls
 *.out
+__pycache__/

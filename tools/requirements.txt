@@ -1,0 +1,2 @@
+# Only needed for generate_seed.py --tui; the plain CLI uses the standard library
+textual==8.2.8
