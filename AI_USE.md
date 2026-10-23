@@ -6,7 +6,7 @@ This project used generative AI tools from Anthropic: Claude (claude.ai) and Cla
 
 | Part of the project                               | AI's role                                                                 | Our role                                                                                                              |
 | ------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Seed data (`seed.sql`)                            | Generated the sample rows                                                 | Defined the schema the data had to fit; reviewed and verified the data                                                |
+| Seed generator (`tools/`) and `seed.sql`          | Built the entire Python seed generator (CLI and TUI), which writes `seed.sql` | Defined the schema, constraints and triggers the data had to satisfy; chose the generator options; verified the data |
 | `README.md`                                       | Drafted the run instructions and file map                                 | Reviewed the steps and wrote the AI citation section ourselves                                                        |
 | `sprints/goal-d-draft.md`                         | Drafted the next-sprint plan for goal D, including an SQL sketch          | Chose the goal, reviewed the reasoning, will fill in the competency, and will do the actual 4NF work next sprint      |
 | `docs/lossless-join.md`, `sql/lossless_check.sql` | Helped draft the goal B write-up and the join-back SQL                    | Chose the three decompositions and the FDs, checked every chase step by hand, ran the SQL, picked the competency      |
@@ -17,11 +17,11 @@ Our design work was done by the team without AI: the requirements, the ERD, the 
 
 ## Details
 
-### Seed data
+### Seed generator and seed data (`tools/`, `sql/seed.sql`)
 
-- **What AI did:** Claude Code generated realistic, fictional sample data for our schema in `ddl.sql`: users, stocks, transactions and holdings. It was committed in 960f953.
-- **How we checked it:** We loaded the data into an empty MySQL 8.0 database by following the README, and confirmed the row counts: 9 users, 14 stocks, 82 transactions and 22 holds. We also checked that the data is consistent with our own business rules.
-- **Why this does not undermine our learning:** Sample data is not a course competency. Writing hundreds of `INSERT` statements by hand is not part of designing or normalizing a schema. The data is only there so that we can demonstrate the schema we designed. Every table and constraint the data must satisfy came from our own design.
+- **What AI did:** Claude Code built the entire Python seed generator: `tools/generate_seed.py` (the CLI), `tools/seed_tui.py` (the interactive Textual TUI), `tools/requirements.txt` and `tools/README.md`. The generator writes `sql/seed.sql` with fictional data for all 8 tables. It replays every trade in time order against the user's cash and the portfolio's holdings, so the data satisfies our triggers (C.7.7, C.7.8, C.5.7, C.7.10). It was committed in 270d684. No team member wrote any of the generator's code. An earlier, hand-generated `seed.sql` for the old 4-table schema was also produced by Claude Code (960f953).
+- **How we checked it:** `sql/seed.sql` loads into an empty MySQL 8.0 database after `ddl.sql`, which runs every insert through our constraints and triggers; CI does this on every push. TODO: describe the team's own checks (e.g. who reviewed the generator, row counts confirmed, spot checks against business rules).
+- **Why this does not undermine our learning:** Sample data and Python tooling are not course competencies. Writing thousands of `INSERT` statements, or a program to produce them, is not part of designing or normalizing a schema. The generator only exists so that we can demonstrate the schema we designed. Every table, constraint and trigger the data must satisfy came from our own design.
 
 ### README
 
