@@ -11,6 +11,7 @@ services:
       # Run once, in this order, when the database is first created
       - ./sql/ddl.sql:/docker-entrypoint-initdb.d/1-ddl.sql:ro
       - ./sql/seed.sql:/docker-entrypoint-initdb.d/2-seed.sql:ro
+      - ./sql/views.sql:/docker-entrypoint-initdb.d/3-views.sql:ro
       # All SQL files, for running queries.sql by hand
       - ./sql:/sql:ro
     healthcheck:

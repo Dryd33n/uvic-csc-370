@@ -53,6 +53,12 @@ jobs:
             echo "Notice: sql/seed.sql not found. Skipping data seed test."
           fi
 
+      - name: Create SQL Views
+        run: |
+          echo "Executing sql/views.sql..."
+          mysql -h 127.0.0.1 -P 3306 -u root -prootpassword project_db < sql/views.sql
+          echo "Views created successfully!"
+
       - name: Test SQL Constraints
         run: |
           # Each statement breaks one constraint and must be rejected with the
