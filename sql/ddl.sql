@@ -158,6 +158,9 @@ CREATE TABLE `transaction` (
     -- C.7.2, C.7.11: a stock with trades can't be deleted
     CONSTRAINT `fk_transaction_stock` FOREIGN KEY (`ticker`) REFERENCES `stock` (`ticker`)
         ON DELETE RESTRICT,
+    -- Index: the C.7.8 sell check and v_holdings look trades up by (portfolio_id, ticker).
+    -- Its leading column also serves fk_transaction_portfolio.
+    INDEX `idx_transaction_portfolio_ticker` (`portfolio_id`, `ticker`),
     -- C.7.3
     CONSTRAINT `chk_transaction_quantity` CHECK (`quantity` > 0),
     -- C.7.4
