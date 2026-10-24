@@ -1,9 +1,11 @@
 -- Goal D queries for the stock_trading schema
 --   Run after ddl.sql and seed.sql. Read-only: nothing here changes the data.
---   Each query below is an outline only; the SQL is still to be written.
+--   Q1, Q3-Q6, Q8, Q10 and Q11 are written; the rest are still outlines.
+--   The written queries use the views in sql/views.sql, so run that first
+--   (Docker and CI load it after the seed).
 --   CI runs this file, so it must stay valid SQL.
 --
--- Shared definitions (used by many queries below; candidates for views/CTEs)
+-- Shared definitions (used by many queries below; now views in sql/views.sql)
 --   Latest price  For each ticker, the closing_price on its most recent
 --                 price_date in stock_price_history (MAX(price_date) per ticker).
 --   Holdings      There is no holdings table: shares held are derived from the
@@ -28,6 +30,22 @@ USE stock_trading;
 -- Joins: user JOIN portfolio JOIN transaction (aggregated per portfolio and
 -- ticker) JOIN stock JOIN latest price. Skip positions with 0 shares.
 -- Order by user, portfolio, then ticker.
+-- Large result, so only the first 15 rows are shown; remove LIMIT for all.
+SELECT u.name,
+       p.portfolio_name,
+       v.ticker,
+       s.company_name,
+       v.shares,
+       ROUND(v.cost_basis, 2)      AS cost_basis,
+       v.latest_price,
+       ROUND(v.market_value, 2)    AS market_value,
+       ROUND(v.unrealized_gain, 2) AS unrealized_gain
+FROM v_position_value AS v
+JOIN portfolio        AS p ON p.portfolio_id = v.portfolio_id
+JOIN `user`           AS u ON u.user_id      = v.user_id
+JOIN stock            AS s ON s.ticker       = v.ticker
+ORDER BY u.user_id, p.portfolio_name, v.ticker
+LIMIT 15;
 
 -- -----------------------------------------------------
 -- Q2: Trade history for one user
@@ -46,6 +64,19 @@ USE stock_trading;
 -- Joins: user LEFT JOIN (holdings across portfolios JOIN latest price), so
 -- users with no holdings still appear with just their cash.
 -- RANK() OVER (ORDER BY net worth DESC).
+-- Only the top 10 are shown; remove LIMIT for all 420 users.
+SELECT RANK() OVER (ORDER BY u.cash_balance + COALESCE(pv.market_value, 0) DESC) AS place,
+       u.name,
+       u.cash_balance,
+       ROUND(COALESCE(pv.market_value, 0), 2)                         AS holdings_value,
+       ROUND(u.cash_balance + COALESCE(pv.market_value, 0), 2)        AS net_worth,
+       ROUND(u.cash_balance + COALESCE(pv.market_value, 0) - 100000.00, 2) AS gain
+FROM `user` AS u
+LEFT JOIN (SELECT user_id, SUM(market_value) AS market_value
+           FROM v_position_value
+           GROUP BY user_id) AS pv ON pv.user_id = u.user_id
+ORDER BY place
+LIMIT 10;
 
 -- -----------------------------------------------------
 -- Q4: Trading activity per stock
@@ -55,6 +86,18 @@ USE stock_trading;
 -- portfolios that traded it.
 -- Uses LEFT JOIN from stock so stocks with no trades show zeros.
 -- GROUP BY ticker, order by trade count descending.
+-- Expected with the committed seed: 14 rows; ATD and CNR (TSX) have 0 trades.
+SELECT s.ticker,
+       COUNT(t.transaction_id)                                         AS trades,
+       COALESCE(SUM(CASE WHEN t.transaction_type = 'buy'  THEN 1 END), 0) AS buys,
+       COALESCE(SUM(CASE WHEN t.transaction_type = 'sell' THEN 1 END), 0) AS sells,
+       COALESCE(SUM(t.quantity), 0)                                    AS shares_traded,
+       ROUND(COALESCE(SUM(t.quantity * t.price), 0), 2)                AS dollar_volume,
+       COUNT(DISTINCT t.portfolio_id)                                  AS portfolios
+FROM stock AS s
+LEFT JOIN `transaction` AS t ON t.ticker = s.ticker
+GROUP BY s.ticker
+ORDER BY trades DESC;
 
 -- -----------------------------------------------------
 -- Q5: Cash balance consistency check (C.7.9)
@@ -64,6 +107,19 @@ USE stock_trading;
 -- portfolios, rounding each trade to 2 decimals like trg_transaction_after_insert.
 -- Return only the users where the two disagree. An empty result means the
 -- trigger kept every balance in step with the ledger.
+-- Expected: 0 rows.
+SELECT u.user_id,
+       u.name,
+       u.cash_balance,
+       100000.00 - COALESCE(l.spent, 0) + COALESCE(l.received, 0) AS rebuilt_balance
+FROM `user` AS u
+LEFT JOIN (SELECT p.user_id,
+                  SUM(CASE WHEN t.transaction_type = 'buy'  THEN ROUND(t.quantity * t.price, 2) END) AS spent,
+                  SUM(CASE WHEN t.transaction_type = 'sell' THEN ROUND(t.quantity * t.price, 2) END) AS received
+           FROM portfolio AS p
+           JOIN `transaction` AS t ON t.portfolio_id = p.portfolio_id
+           GROUP BY p.user_id) AS l ON l.user_id = u.user_id
+WHERE u.cash_balance <> 100000.00 - COALESCE(l.spent, 0) + COALESCE(l.received, 0);
 
 -- -----------------------------------------------------
 -- Q6: Users with no trades
@@ -71,6 +127,16 @@ USE stock_trading;
 -- Users with no transactions in any portfolio, including users with no
 -- portfolio at all. Show name, email and number of portfolios.
 -- Anti-join: NOT EXISTS (portfolio JOIN transaction for that user_id).
+-- Expected with the committed seed: 2 rows (Keira Martin, Priya Rossi).
+SELECT u.name,
+       u.email,
+       (SELECT COUNT(*) FROM portfolio AS p WHERE p.user_id = u.user_id) AS portfolios
+FROM `user` AS u
+WHERE NOT EXISTS (SELECT 1
+                  FROM portfolio AS p
+                  JOIN `transaction` AS t ON t.portfolio_id = p.portfolio_id
+                  WHERE p.user_id = u.user_id)
+ORDER BY u.name;
 
 -- -----------------------------------------------------
 -- Q7: Each user's largest holding
@@ -90,6 +156,17 @@ USE stock_trading;
 -- portfolio_id, ticker ORDER BY executed_at, transaction_id).
 -- Return any row where the running count drops below 0. An empty result
 -- means no portfolio ever sold shares it didn't hold.
+-- Expected: 0 rows.
+SELECT *
+FROM (SELECT t.transaction_id,
+             t.portfolio_id,
+             t.ticker,
+             t.executed_at,
+             SUM(CASE WHEN t.transaction_type = 'buy' THEN t.quantity ELSE -t.quantity END)
+               OVER (PARTITION BY t.portfolio_id, t.ticker
+                     ORDER BY t.executed_at, t.transaction_id) AS running_shares
+      FROM `transaction` AS t) AS r
+WHERE r.running_shares < 0;
 
 -- -----------------------------------------------------
 -- Q9: Cash flow per user
@@ -108,6 +185,19 @@ USE stock_trading;
 -- Previous close: LAG(closing_price) OVER (PARTITION BY ticker ORDER BY
 -- price_date) on stock_price_history, then keep the latest date.
 -- Order by percent change descending (biggest gainers first, losers last).
+-- Expected: 14 rows, one per stock.
+SELECT d.ticker,
+       d.previous_close,
+       d.closing_price                                                   AS latest_close,
+       d.closing_price - d.previous_close                                AS `change`,
+       ROUND((d.closing_price - d.previous_close) / d.previous_close * 100, 2) AS percent_change
+FROM (SELECT h.ticker,
+             h.price_date,
+             h.closing_price,
+             LAG(h.closing_price) OVER (PARTITION BY h.ticker ORDER BY h.price_date) AS previous_close
+      FROM stock_price_history AS h) AS d
+JOIN v_latest_price AS lp ON lp.ticker = d.ticker AND lp.price_date = d.price_date
+ORDER BY percent_change DESC;
 
 -- -----------------------------------------------------
 -- Q11: Most active traders
@@ -117,6 +207,19 @@ USE stock_trading;
 -- traded and number of portfolios used.
 -- Joins: user JOIN portfolio JOIN transaction, GROUP BY user,
 -- HAVING COUNT(*) > N. Order by trade count descending.
+-- N = 220 (the average is about 100 trades per user). Expected with the
+-- committed seed: 15 users, from Jonas Haddad (287 trades) down.
+SELECT u.name,
+       COUNT(*)                       AS trades,
+       SUM(t.quantity)                AS shares_traded,
+       COUNT(DISTINCT t.ticker)       AS stocks,
+       COUNT(DISTINCT t.portfolio_id) AS portfolios_used
+FROM `user` AS u
+JOIN portfolio     AS p ON p.user_id      = u.user_id
+JOIN `transaction` AS t ON t.portfolio_id = p.portfolio_id
+GROUP BY u.user_id, u.name
+HAVING COUNT(*) > 220
+ORDER BY trades DESC;
 
 -- -----------------------------------------------------
 -- Q12: Stocks nobody holds
@@ -173,3 +276,14 @@ USE stock_trading;
 -- Show portfolio_name, owner, invested, proceeds, market value, profit and
 -- return rate. Joins: portfolio JOIN user JOIN transaction, plus holdings
 -- JOIN latest price, filtered on portfolio_id.
+
+-- -----------------------------------------------------
+-- Index check: the C.7.8 sell check uses idx_transaction_portfolio_ticker
+-- -----------------------------------------------------
+-- trg_transaction_before_insert sums a portfolio's trades in one ticker before
+-- every sell. This is the same lookup. Expected: type = ref, key =
+-- idx_transaction_portfolio_ticker, ref = const,const (both columns used).
+EXPLAIN SELECT COALESCE(SUM(IF(t.transaction_type = 'buy', t.quantity, -t.quantity)), 0)
+FROM `transaction` AS t
+WHERE t.portfolio_id = 1
+  AND t.ticker = 'AAPL';
