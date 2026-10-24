@@ -78,7 +78,7 @@ mysql -u root -p < sql/views.sql
 docker compose exec db mysql -uroot -prootpassword -t stock_trading -e "SELECT 'exchange' t, COUNT(*) n FROM exchange UNION ALL SELECT 'stock', COUNT(*) FROM stock UNION ALL SELECT 'stock_price_history', COUNT(*) FROM stock_price_history UNION ALL SELECT 'user', COUNT(*) FROM user UNION ALL SELECT 'portfolio', COUNT(*) FROM portfolio UNION ALL SELECT 'watchlist', COUNT(*) FROM watchlist UNION ALL SELECT 'transaction', COUNT(*) FROM transaction UNION ALL SELECT 'limit_order', COUNT(*) FROM limit_order"
 ```
 
-With the default seed, expect: `exchange` 3, `stock` 14, `stock_price_history` 840, `user` 12, `portfolio` 28, `watchlist` 35, `transaction` 206 (203 inserted, plus 3 created by executed limit orders), `limit_order` 29. The counts for any other seed are in the header of `sql/seed.sql`. For a local server, run the same `SELECT` in `mysql -u root -p stock_trading`.
+With the committed `sql/seed.sql`, expect: `exchange` 3, `stock` 14, `stock_price_history` 840, `user` 420, `portfolio` 1459, `watchlist` 1045, `transaction` 41671 (41668 inserted, plus 3 created by executed limit orders), `limit_order` 1448. It was generated with larger options than the defaults; the command and counts are in its first lines. If you regenerate it, the new counts are in the same place. For a local server, run the same `SELECT` in `mysql -u root -p stock_trading`.
 
 Docker commands that pass a password print `Using a password on the command line interface can be insecure`, which is expected.
 
