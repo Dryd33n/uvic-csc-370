@@ -55,3 +55,22 @@ SELECT p.user_id,
 FROM v_holdings     AS h
 JOIN portfolio      AS p  ON p.portfolio_id = h.portfolio_id
 JOIN v_latest_price AS lp ON lp.ticker      = h.ticker;
+
+-- -----------------------------------------------------
+-- holds: what each portfolio holds, for display
+--   share_value    = latest closing price of one share
+--   percent_change = latest price vs. average buy price (cost_basis), as a percent
+--   One row per (portfolio_id, ticker). Includes portfolio_id because portfolio
+--   names are only unique per user (C.2.4).
+-- -----------------------------------------------------
+CREATE OR REPLACE VIEW `holds` AS
+SELECT pv.portfolio_id,
+       p.portfolio_name,
+       pv.ticker,
+       s.exchange_code,
+       pv.shares,
+       pv.latest_price                                                   AS share_value,
+       ROUND((pv.latest_price - pv.cost_basis) / pv.cost_basis * 100, 2) AS percent_change
+FROM v_position_value AS pv
+JOIN portfolio        AS p ON p.portfolio_id = pv.portfolio_id
+JOIN stock            AS s ON s.ticker       = pv.ticker;
