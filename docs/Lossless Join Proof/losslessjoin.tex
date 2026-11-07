@@ -22,97 +22,116 @@
 
 \section*{Overview}
 
-Each of our four relations (\texttt{user}, \texttt{stock}, \texttt{transaction} and \texttt{holds}) is already in BCNF (see the \emph{Functional Dependencies and Candidate Keys} document). Losslessness is a property of a \emph{decomposition}, not of a single relation. Our four relations are the result of decomposing the single table we would have without normalization: the \textbf{universal relation} $U$, which holds every attribute of the database in one row per trade.
+Each of our eight relations is already in BCNF (see the \emph{Functional Dependencies and Candidate Keys} document). Losslessness is a property of a \emph{decomposition}, not of a single relation. Our relations are the result of decomposing the wide tables we would have without normalization: a \textbf{universal relation} that holds a fact together with everything it determines, in one row.
 
-This document:
+Our database stores four independent kinds of fact: trades, limit orders, daily prices and watchlist entries. Each gets its own universal relation, because putting all four in one row does not work (Section~\ref{sec:single}). This document:
 \begin{enumerate}[leftmargin=*]
-  \item defines $U$ and its FDs, finds its candidate key, and shows that it violates BCNF, using anomalies from \texttt{sql/seed.sql};
-  \item decomposes $U$ with the BCNF decomposition algorithm, which ends in exactly our four relations, and proves each step lossless;
-  \item confirms the whole four-way decomposition is lossless with the chase test;
-  \item gives a lossy decomposition of \texttt{holds} as a counterexample, with spurious tuples taken from the seed data.
+  \item defines the attributes, the FDs and the four universal relations $U_T$, $U_O$, $U_H$ and $U_W$;
+  \item for the trade relation $U_T$, finds its candidate key, shows that it violates BCNF using anomalies from \texttt{sql/seed.sql}, and decomposes it with the BCNF decomposition algorithm into \texttt{user}, \texttt{exchange}, \texttt{stock}, \texttt{portfolio} and \texttt{transaction}, proving each step lossless;
+  \item does the same, more briefly, for $U_O$, $U_H$ and $U_W$, which produce \texttt{limit\_order}, \texttt{stock\_price\_history} and \texttt{watchlist} along with tables already found;
+  \item confirms each decomposition is lossless with the chase test;
+  \item shows why a single universal relation of every attribute cannot be decomposed losslessly into our tables;
+  \item gives a lossy decomposition of \texttt{limit\_order} as a counterexample, with spurious tuples taken from the seed data.
 \end{enumerate}
 
-\section{The Universal Relation}
+\section{Attributes, FDs and the Universal Relations}
 
-$U$ stores one row per trade. Each row also carries the trader's account details, the stock's details, and the trader's current position in that stock. \texttt{transaction} and \texttt{holds} both have a \texttt{quantity} attribute, so we rename them $\at{t\_quantity}$ (shares in this trade) and $\at{h\_quantity}$ (shares currently held).
-\[
-  U(\at{transaction\_id}, \at{user\_id}, \at{name}, \at{email}, \at{ticker}, \at{company\_name}, \at{opening\_price}, \at{closing\_price}, \at{exchange},
-\]
-\[
-  \at{transaction\_type}, \at{t\_quantity}, \at{price}, \at{time}, \at{h\_quantity}, \at{average\_price})
-\]
+$A$ is the set of every attribute in the database. \texttt{quantity}, \texttt{target\_price} and \texttt{created\_at} each appear in two tables with different meanings, so in $A$ they are renamed by table: $\at{t\_quantity}$ and $\at{o\_quantity}$ (\texttt{transaction}, \texttt{limit\_order}), $\at{w\_target\_price}$ and $\at{o\_target\_price}$ (\texttt{watchlist}, \texttt{limit\_order}), $\at{p\_created\_at}$ and $\at{o\_created\_at}$ (\texttt{portfolio}, \texttt{limit\_order}). The foreign keys \texttt{user\_id}, \texttt{portfolio\_id}, \texttt{ticker} and \texttt{exchange\_code} mean the same thing wherever they appear, so each is one attribute.
 
 To keep the expressions readable, we group attributes that always appear together:
 \begin{align*}
-  N &= \{\at{name}, \at{email}\} && \text{(account details)} \\
-  S &= \{\at{company\_name}, \at{opening\_price}, \at{closing\_price}, \at{exchange}\} && \text{(stock details)} \\
-  T &= \{\at{transaction\_type}, \at{t\_quantity}, \at{price}, \at{time}\} && \text{(trade details)} \\
-  P &= \{\at{h\_quantity}, \at{average\_price}\} && \text{(position details)}
+  N &= \{\at{name}, \at{email}, \at{cash\_balance}\} && \text{(account details)} \\
+  Q &= \{\at{portfolio\_name}, \at{p\_created\_at}\} && \text{(portfolio details)} \\
+  E &= \{\at{exchange\_name}, \at{country}, \at{currency}\} && \text{(exchange details)} \\
+  S &= \{\at{company\_name}, \at{sector}\} && \text{(stock details)} \\
+  H &= \{\at{opening\_price}, \at{closing\_price}, \at{high\_price}, \at{low\_price}, \at{volume}\} && \text{(daily price details)} \\
+  W &= \{\at{w\_target\_price}, \at{added\_at}\} && \text{(watchlist details)} \\
+  T &= \{\at{transaction\_type}, \at{t\_quantity}, \at{price}, \at{executed\_at}\} && \text{(trade details)} \\
+  O &= \{\at{order\_type}, \at{o\_target\_price}, \at{o\_quantity}, \at{status}, \at{o\_created\_at}\} && \text{(order details)}
 \end{align*}
-\[
-  U = \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\} \cup N \cup S \cup T \cup P
-\]
 
 \subsection*{Functional Dependencies $F$}
 
-These are the FDs of the four relations, from the \emph{Functional Dependencies and Candidate Keys} document:
-\begin{itemize}[leftmargin=*]
+These are the FDs of the eight relations, from the \emph{Functional Dependencies and Candidate Keys} document:
+\begin{itemize}[leftmargin=*, nosep]
   \item $FD_1$: $\at{user\_id} \rightarrow N$
   \item $FD_2$: $\at{email} \rightarrow \at{user\_id}$
-  \item $FD_3$: $\at{ticker} \rightarrow S$
-  \item $FD_4$: $\at{transaction\_id} \rightarrow \at{user\_id}, \at{ticker}, T$
-  \item $FD_5$: $\at{user\_id}, \at{ticker} \rightarrow P$
+  \item $FD_3$: $\at{portfolio\_id} \rightarrow \at{user\_id}, Q$
+  \item $FD_4$: $\at{user\_id}, \at{portfolio\_name} \rightarrow \at{portfolio\_id}$
+  \item $FD_5$: $\at{exchange\_code} \rightarrow E$
+  \item $FD_6$: $\at{ticker} \rightarrow \at{exchange\_code}, S$
+  \item $FD_7$: $\at{ticker}, \at{price\_date} \rightarrow H$
+  \item $FD_8$: $\at{user\_id}, \at{ticker} \rightarrow W$
+  \item $FD_9$: $\at{transaction\_id} \rightarrow \at{portfolio\_id}, \at{ticker}, T$
+  \item $FD_{10}$: $\at{order\_id} \rightarrow \at{portfolio\_id}, \at{ticker}, O$
 \end{itemize}
 
-\subsection*{Candidate Key of $U$}
+\subsection*{The Four Universal Relations}
+
+Each universal relation holds one kind of fact, plus every attribute that fact determines through the foreign keys:
+\begin{align*}
+  U_T &= \{\at{transaction\_id}, \at{portfolio\_id}, \at{user\_id}, \at{ticker}, \at{exchange\_code}\} \cup N \cup Q \cup S \cup E \cup T && \text{(one row per trade)} \\
+  U_O &= \{\at{order\_id}, \at{portfolio\_id}, \at{user\_id}, \at{ticker}, \at{exchange\_code}\} \cup N \cup Q \cup S \cup E \cup O && \text{(one row per limit order)} \\
+  U_H &= \{\at{ticker}, \at{price\_date}, \at{exchange\_code}\} \cup S \cup E \cup H && \text{(one row per daily price)} \\
+  U_W &= \{\at{user\_id}, \at{ticker}, \at{exchange\_code}\} \cup N \cup S \cup E \cup W && \text{(one row per watchlist entry)}
+\end{align*}
+$U_T$ and $U_O$ leave out $W$: a user does not have to watch a stock to trade it, so a trade's row usually has no watchlist values to carry. Together the four cover all of $A$. The FDs that hold in each are computed in the \emph{Minimal Basis and FD Projection} document; in each case they are exactly the FDs of $F$ whose attributes lie in that relation.
+
+\section{Decomposing the Trade Relation $U_T$}
+
+\subsection*{Candidate Key of $U_T$}
 
 \begin{align*}
   \cl{\at{transaction\_id}}
-    &\supseteq \{\at{transaction\_id}\} && \text{(reflexivity)} \\
-    &\supseteq \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\} \cup T && \text{(applying } FD_4\text{)} \\
-    &\supseteq \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\} \cup T \cup N && \text{(applying } FD_1\text{, transitivity)} \\
-    &\supseteq \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\} \cup T \cup N \cup S && \text{(applying } FD_3\text{, transitivity)} \\
-    &\supseteq \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\} \cup T \cup N \cup S \cup P && \text{(applying } FD_5\text{, transitivity)} \\
-    &= U
+    &\supseteq \{\at{transaction\_id}, \at{portfolio\_id}, \at{ticker}\} \cup T && \text{(applying } FD_9\text{)} \\
+    &\supseteq \ldots \cup \{\at{user\_id}\} \cup Q && \text{(applying } FD_3\text{, transitivity)} \\
+    &\supseteq \ldots \cup N && \text{(applying } FD_1\text{, transitivity)} \\
+    &\supseteq \ldots \cup \{\at{exchange\_code}\} \cup S && \text{(applying } FD_6\text{, transitivity)} \\
+    &\supseteq \ldots \cup E && \text{(applying } FD_5\text{, transitivity)} \\
+    &\supseteq U_T
 \end{align*}
 
-$\{\at{transaction\_id}\}$ is a superkey, and its only proper subset $\emptyset$ has $\emptyset^+ = \emptyset$, so it is a candidate key. No FD has $\at{transaction\_id}$ on its right-hand side. The only way to derive it is reflexivity, so every superkey must contain $\at{transaction\_id}$. $\{\at{transaction\_id}\}$ is therefore the \textbf{only} candidate key of $U$.
+$\{\at{transaction\_id}\}$ is a superkey, and its only proper subset $\emptyset$ has $\emptyset^+ = \emptyset$, so it is a candidate key. No FD has $\at{transaction\_id}$ on its right-hand side. The only way to derive it is reflexivity, so every superkey must contain it. $\{\at{transaction\_id}\}$ is therefore the \textbf{only} candidate key of $U_T$.
 
 \subsection*{BCNF Violations}
 
-$U$ is in BCNF only if the left-hand side of every non-trivial FD is a superkey. Four of the five FDs fail this:
+$U_T$ is in BCNF only if the left-hand side of every non-trivial FD is a superkey. Six of the seven FDs that hold in $U_T$ fail this:
 \begin{center}
 \begin{tabular}{l l l}
   \toprule
-  \textbf{FD} & \textbf{Closure of left-hand side in $U$} & \textbf{Superkey?} \\
+  \textbf{FD} & \textbf{Closure of left-hand side, within $U_T$} & \textbf{Superkey?} \\
   \midrule
   $FD_1$ & $\cl{\at{user\_id}} = \{\at{user\_id}\} \cup N$ & No \\
   $FD_2$ & $\cl{\at{email}} = \{\at{user\_id}\} \cup N$ & No \\
-  $FD_3$ & $\cl{\at{ticker}} = \{\at{ticker}\} \cup S$ & No \\
-  $FD_4$ & $\cl{\at{transaction\_id}} = U$ & Yes \\
-  $FD_5$ & $\cl{\at{user\_id}, \at{ticker}} = \{\at{user\_id}, \at{ticker}\} \cup N \cup S \cup P$ & No \\
+  $FD_3$ & $\cl{\at{portfolio\_id}} = \{\at{portfolio\_id}, \at{user\_id}\} \cup Q \cup N$ & No \\
+  $FD_4$ & $\cl{\at{user\_id}, \at{portfolio\_name}} = \{\at{portfolio\_id}, \at{user\_id}\} \cup Q \cup N$ & No \\
+  $FD_5$ & $\cl{\at{exchange\_code}} = \{\at{exchange\_code}\} \cup E$ & No \\
+  $FD_6$ & $\cl{\at{ticker}} = \{\at{ticker}, \at{exchange\_code}\} \cup S \cup E$ & No \\
+  $FD_9$ & $\cl{\at{transaction\_id}} \supseteq U_T$ & Yes \\
   \bottomrule
 \end{tabular}
 \end{center}
 
-\subsection*{Anomalies in $U$}
+\subsection*{Anomalies in $U_T$}
 
-Each violation causes anomalies, which the seed data shows directly:
+Each violation causes anomalies, which the seed data shows directly. The seed has 41{,}671 trades (41{,}668 inserted, plus 3 created by executed limit orders).
 \begin{itemize}[leftmargin=*]
-  \item \textbf{Insertion:} every row of $U$ needs a $\at{transaction\_id}$. So $U$ cannot store user 9 (Isla MacDonald, who has no trades yet), or the stocks CNR and ATD, which have never been traded.
-  \item \textbf{Update:} AAPL appears in 9 trades, so its closing price is stored 9 times. Changing it means updating all 9 rows, and missing one leaves $U$ inconsistent ($FD_3$).
-  \item \textbf{Deletion:} user 7 (Grace Liu) has 4 trades. Deleting those 4 rows also deletes Grace's name and email ($FD_1$).
+  \item \textbf{Insertion:} every row of $U_T$ needs a $\at{transaction\_id}$. So $U_T$ cannot store user 165 (Priya Rossi) or user 293 (Keira Martin), who have no trades yet; the 25 portfolios that have no trades; or the TSX exchange and its stocks CNR and ATD, which have never been traded.
+  \item \textbf{Update:} NASDAQ appears in 20{,}384 trades, so its name, country and currency are stored 20{,}384 times ($FD_5$). Worse, $\at{cash\_balance}$ changes with every trade ($FD_1$): user 173 (Jonas Haddad) has 287 trades, so his next trade would mean rewriting his balance in 287 rows, and missing one leaves $U_T$ inconsistent.
+  \item \textbf{Deletion:} user 330 (Yusuf Martin) has 1 trade. Deleting that row also deletes his name, email and cash balance ($FD_1$), and the portfolio it was made in ($FD_3$).
 \end{itemize}
 
-\section{BCNF Decomposition of $U$}
+\subsection*{Lossless Join Test}
 
-\textbf{Lossless join test.} A decomposition of $R$ into $R_1$ and $R_2$ is lossless if and only if
+A decomposition of $R$ into $R_1$ and $R_2$ is lossless if and only if
 \[
   (R_1 \cap R_2) \rightarrow R_1 \quad \text{or} \quad (R_1 \cap R_2) \rightarrow R_2 \quad \text{is in } F^+
 \]
 That is, the shared attributes form a superkey of at least one side.
 
-Each step of the algorithm picks a violation $X \rightarrow Y$ and splits $R$ into $R_1 = X^+$ and $R_2 = (R \setminus X^+) \cup X$. Then $R_1 \cap R_2 = X$, and $X \rightarrow X^+ = R_1$ by the definition of closure, so each step passes the test.
+Each step of the algorithm picks a violation $X \rightarrow Y$ and splits $R$ into $R_1 = X^+ \cap R$ and $R_2 = (R \setminus X^+) \cup X$. Then $R_1 \cap R_2 = X$, and $X \rightarrow X^+ \cap R = R_1$ by the definition of closure, so each step passes the test.
+
+\textbf{Order of the steps.} We remove violations from the edges of the FD graph inward: first $FD_1$ and $FD_5$, whose right-hand sides determine nothing further, then $FD_6$, then $FD_3$. With this order each $X^+ \cap R$ is exactly one of our tables. Other orders are also lossless, but give relations that need extra splits (for example, starting with $FD_3$ puts $N$ and $Q$ in the same relation).
 
 \subsection*{Step 1: Remove $FD_1$}
 
@@ -120,146 +139,279 @@ Each step of the algorithm picks a violation $X \rightarrow Y$ and splits $R$ in
   \item \textbf{Violation:} $FD_1$: $\at{user\_id} \rightarrow N$, with $\cl{\at{user\_id}} = \{\at{user\_id}\} \cup N$.
   \item \textbf{Split:}
   \begin{align*}
-    R_1 &= \{\at{user\_id}\} \cup N = \{\at{user\_id}, \at{name}, \at{email}\} \implies \textbf{\texttt{user}} \\
-    U_1 &= (U \setminus N) \cup \{\at{user\_id}\} = \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\} \cup S \cup T \cup P
+    R_1 &= \{\at{user\_id}\} \cup N = \{\at{user\_id}, \at{name}, \at{email}, \at{cash\_balance}\} \implies \textbf{\texttt{user}} \\
+    T_1 &= (U_T \setminus N) \cup \{\at{user\_id}\} = \{\at{transaction\_id}, \at{portfolio\_id}, \at{user\_id}, \at{ticker}, \at{exchange\_code}\} \cup Q \cup S \cup E \cup T
   \end{align*}
-  \item \textbf{Lossless:} $R_1 \cap U_1 = \{\at{user\_id}\}$, and $\cl{\at{user\_id}} \supseteq R_1$. So $\{\at{user\_id}\}$ is a superkey of $R_1$ and the split is lossless.
+  \item \textbf{Lossless:} $R_1 \cap T_1 = \{\at{user\_id}\}$, and $\cl{\at{user\_id}} \supseteq R_1$. So $\{\at{user\_id}\}$ is a superkey of $R_1$ and the split is lossless.
   \item $FD_2$ ($\at{email} \rightarrow \at{user\_id}$) now lies entirely inside \texttt{user}, where $\at{email}$ is a candidate key. So it is no longer a violation.
 \end{itemize}
 
-\subsection*{Step 2: Remove $FD_3$}
+\subsection*{Step 2: Remove $FD_5$}
 
-The projection of $F$ onto $U_1$ has the minimal basis $FD_3$, $FD_4$ and $FD_5$ (split into single attributes), as computed in the \emph{Minimal Basis and FD Projection} document. $\{\at{transaction\_id}\}$ is still the only key of $U_1$, so $FD_3$ still violates BCNF.
+The projection of $F$ onto $T_1$ has the FDs $FD_3$ to $FD_6$ and $FD_9$ (see the \emph{Minimal Basis and FD Projection} document). $\{\at{transaction\_id}\}$ is still the only key of $T_1$, so $FD_5$ still violates BCNF.
 \begin{itemize}[leftmargin=*]
-  \item \textbf{Violation:} $FD_3$: $\at{ticker} \rightarrow S$, with $\cl{\at{ticker}} = \{\at{ticker}\} \cup S$.
+  \item \textbf{Violation:} $FD_5$: $\at{exchange\_code} \rightarrow E$, with $\cl{\at{exchange\_code}} = \{\at{exchange\_code}\} \cup E$.
   \item \textbf{Split:}
   \begin{align*}
-    R_2 &= \{\at{ticker}\} \cup S \implies \textbf{\texttt{stock}} \\
-    U_2 &= (U_1 \setminus S) \cup \{\at{ticker}\} = \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\} \cup T \cup P
+    R_2 &= \{\at{exchange\_code}\} \cup E = \{\at{exchange\_code}, \at{exchange\_name}, \at{country}, \at{currency}\} \implies \textbf{\texttt{exchange}} \\
+    T_2 &= (T_1 \setminus E) = \{\at{transaction\_id}, \at{portfolio\_id}, \at{user\_id}, \at{ticker}, \at{exchange\_code}\} \cup Q \cup S \cup T
   \end{align*}
-  \item \textbf{Lossless:} $R_2 \cap U_2 = \{\at{ticker}\}$, and $\cl{\at{ticker}} \supseteq R_2$. So $\{\at{ticker}\}$ is a superkey of $R_2$ and the split is lossless.
+  \item \textbf{Lossless:} $R_2 \cap T_2 = \{\at{exchange\_code}\}$, and $\cl{\at{exchange\_code}} \supseteq R_2$. So the split is lossless.
 \end{itemize}
 
-\subsection*{Step 3: Remove $FD_5$}
+\subsection*{Step 3: Remove $FD_6$}
 
-The projection of $F$ onto $U_2$ has the minimal basis $FD_4$ and $FD_5$ (see the same document). In $U_2$, $\cl{\at{user\_id}, \at{ticker}} \cap U_2 = \{\at{user\_id}, \at{ticker}\} \cup P \neq U_2$, because it does not contain $\at{transaction\_id}$. So $FD_5$ still violates BCNF.
+The projection onto $T_2$ has $FD_3$, $FD_4$, $FD_6$ and $FD_9$. Within $T_2$, $\cl{\at{ticker}} \cap T_2 = \{\at{ticker}, \at{exchange\_code}\} \cup S \neq T_2$, so $FD_6$ still violates BCNF.
 \begin{itemize}[leftmargin=*]
-  \item \textbf{Violation:} $FD_5$: $\at{user\_id}, \at{ticker} \rightarrow P$.
+  \item \textbf{Violation:} $FD_6$: $\at{ticker} \rightarrow \at{exchange\_code}, S$.
   \item \textbf{Split:}
   \begin{align*}
-    R_3 &= \{\at{user\_id}, \at{ticker}\} \cup P = \{\at{user\_id}, \at{ticker}, \at{h\_quantity}, \at{average\_price}\} \implies \textbf{\texttt{holds}} \\
-    R_4 &= (U_2 \setminus P) = \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\} \cup T \implies \textbf{\texttt{transaction}}
+    R_3 &= \{\at{ticker}, \at{exchange\_code}\} \cup S = \{\at{ticker}, \at{company\_name}, \at{sector}, \at{exchange\_code}\} \implies \textbf{\texttt{stock}} \\
+    T_3 &= (T_2 \setminus (S \cup \{\at{exchange\_code}\})) = \{\at{transaction\_id}, \at{portfolio\_id}, \at{user\_id}, \at{ticker}\} \cup Q \cup T
   \end{align*}
-  \item \textbf{Lossless:} $R_3 \cap R_4 = \{\at{user\_id}, \at{ticker}\}$, and $\cl{\at{user\_id}, \at{ticker}} \supseteq R_3$. So $\{\at{user\_id}, \at{ticker}\}$ is a superkey of $R_3$ and the split is lossless.
+  \item \textbf{Lossless:} $R_3 \cap T_3 = \{\at{ticker}\}$, and $\cl{\at{ticker}} \supseteq R_3$. So the split is lossless.
 \end{itemize}
 
-\subsection*{Result}
+\subsection*{Step 4: Remove $FD_3$}
 
-The algorithm stops, because each of the four resulting relations is in BCNF:
+The projection onto $T_3$ has $FD_3$, $FD_4$ and $FD_9$. Within $T_3$, $\cl{\at{portfolio\_id}} \cap T_3 = \{\at{portfolio\_id}, \at{user\_id}\} \cup Q \neq T_3$, because it does not contain $\at{transaction\_id}$. So $FD_3$ still violates BCNF (and so does $FD_4$).
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Violation:} $FD_3$: $\at{portfolio\_id} \rightarrow \at{user\_id}, Q$.
+  \item \textbf{Split:}
+  \begin{align*}
+    R_4 &= \{\at{portfolio\_id}, \at{user\_id}\} \cup Q = \{\at{portfolio\_id}, \at{user\_id}, \at{portfolio\_name}, \at{p\_created\_at}\} \implies \textbf{\texttt{portfolio}} \\
+    R_5 &= (T_3 \setminus (\{\at{user\_id}\} \cup Q)) = \{\at{transaction\_id}, \at{portfolio\_id}, \at{ticker}\} \cup T \implies \textbf{\texttt{transaction}}
+  \end{align*}
+  \item \textbf{Lossless:} $R_4 \cap R_5 = \{\at{portfolio\_id}\}$, and $\cl{\at{portfolio\_id}} \supseteq R_4$. So the split is lossless.
+  \item $FD_4$ now lies entirely inside \texttt{portfolio}, where $\{\at{user\_id}, \at{portfolio\_name}\}$ is a candidate key.
+\end{itemize}
+
+\subsection*{Result for $U_T$}
+
+The algorithm stops, because each of the five resulting relations is in BCNF:
 \begin{center}
 \begin{tabular}{l l l}
   \toprule
   \textbf{Relation} & \textbf{Attributes} & \textbf{Projected FDs} \\
   \midrule
-  \texttt{user} & $\at{user\_id}, \at{name}, \at{email}$ & $FD_1$, $FD_2$ \\
-  \texttt{stock} & $\at{ticker}, \at{company\_name}, \at{opening\_price}, \at{closing\_price}, \at{exchange}$ & $FD_3$ \\
-  \texttt{holds} & $\at{user\_id}, \at{ticker}, \at{h\_quantity}, \at{average\_price}$ & $FD_5$ \\
-  \texttt{transaction} & $\at{transaction\_id}, \at{user\_id}, \at{ticker}, \at{transaction\_type}, \at{t\_quantity}, \at{price}, \at{time}$ & $FD_4$ \\
+  \texttt{user} & $\at{user\_id}, \at{name}, \at{email}, \at{cash\_balance}$ & $FD_1$, $FD_2$ \\
+  \texttt{exchange} & $\at{exchange\_code}, \at{exchange\_name}, \at{country}, \at{currency}$ & $FD_5$ \\
+  \texttt{stock} & $\at{ticker}, \at{company\_name}, \at{sector}, \at{exchange\_code}$ & $FD_6$ \\
+  \texttt{portfolio} & $\at{portfolio\_id}, \at{user\_id}, \at{portfolio\_name}, \at{p\_created\_at}$ & $FD_3$, $FD_4$ \\
+  \texttt{transaction} & $\at{transaction\_id}, \at{portfolio\_id}, \at{ticker}, \at{transaction\_type}, \at{t\_quantity}, \at{price}, \at{executed\_at}$ & $FD_9$ \\
   \bottomrule
 \end{tabular}
 \end{center}
-This is exactly the schema in \texttt{sql/ddl.sql}. Every FD of $F$ lies inside one relation, so the decomposition also preserves dependencies.
-
-Each binary step is lossless, so the whole decomposition is lossless. If $R = R_1 \bowtie U_1$ and $U_1 = R_2 \bowtie U_2$, then $R = R_1 \bowtie R_2 \bowtie U_2$, and so on for every step:
+Each binary step is lossless, so the whole decomposition is lossless. If $U_T = R_1 \bowtie T_1$ and $T_1 = R_2 \bowtie T_2$, then $U_T = R_1 \bowtie R_2 \bowtie T_2$, and so on for every step:
 \[
-  \pi_{\texttt{user}}(U) \bowtie \pi_{\texttt{stock}}(U) \bowtie \pi_{\texttt{holds}}(U) \bowtie \pi_{\texttt{transaction}}(U) = U
+  \pi_{\texttt{user}}(U_T) \bowtie \pi_{\texttt{exchange}}(U_T) \bowtie \pi_{\texttt{stock}}(U_T) \bowtie \pi_{\texttt{portfolio}}(U_T) \bowtie \pi_{\texttt{transaction}}(U_T) = U_T
 \]
 
-\section{Chase Test of the Four-Way Decomposition}
+\section{Decomposing $U_O$, $U_H$ and $U_W$}
 
-The chase checks the whole decomposition at once. Build a tableau with one row per relation. Put the distinguished symbol $a$ in each column the relation contains, and a subscripted $b_{ij}$ (row $i$, column $j$) everywhere else. Each group $N$, $S$, $T$ and $P$ can be one column, because each group lies wholly inside or wholly outside every relation, and every FD's right-hand side contains whole groups.
+\subsection{The Limit Order Relation $U_O$}
+
+$U_O$ has the same shape as $U_T$, with $\at{order\_id}$ and $O$ in place of $\at{transaction\_id}$ and $T$. $\{\at{order\_id}\}$ is its only candidate key, for the same reason, and the same four steps apply:
+\begin{center}
+\begin{tabular}{l l l l l}
+  \toprule
+  \textbf{Step} & \textbf{Violation} & \textbf{Split off} & \textbf{Shared attributes} & \textbf{Remainder} \\
+  \midrule
+  1 & $FD_1$ & \texttt{user} & $\{\at{user\_id}\}$ & $O_1 = U_O \setminus N$ \\
+  2 & $FD_5$ & \texttt{exchange} & $\{\at{exchange\_code}\}$ & $O_2 = O_1 \setminus E$ \\
+  3 & $FD_6$ & \texttt{stock} & $\{\at{ticker}\}$ & $O_3 = O_2 \setminus (S \cup \{\at{exchange\_code}\})$ \\
+  4 & $FD_3$ & \texttt{portfolio} & $\{\at{portfolio\_id}\}$ & $\{\at{order\_id}, \at{portfolio\_id}, \at{ticker}\} \cup O \implies$ \textbf{\texttt{limit\_order}} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+In each step the shared attributes are the left-hand side of the violation, which determines the split-off relation, so each step is lossless. The anomalies mirror $U_T$: for example, the 478 portfolios and 34 users with no limit orders cannot be stored in $U_O$.
+
+\subsection{The Daily Price Relation $U_H$}
+
+$\cl{\at{ticker}, \at{price\_date}} = \{\at{ticker}, \at{price\_date}, \at{exchange\_code}\} \cup S \cup E \cup H = U_H$ (by $FD_7$, $FD_6$, $FD_5$). $\at{price\_date}$ is on no right-hand side, and within $U_H$ nothing determines $\at{ticker}$, so $\{\at{ticker}, \at{price\_date}\}$ is the only candidate key. $FD_5$ and $FD_6$ violate BCNF: for instance, every one of the 60 daily prices of a NASDAQ stock repeats NASDAQ's name, country and currency.
+\begin{center}
+\begin{tabular}{l l l l l}
+  \toprule
+  \textbf{Step} & \textbf{Violation} & \textbf{Split off} & \textbf{Shared attributes} & \textbf{Remainder} \\
+  \midrule
+  1 & $FD_5$ & \texttt{exchange} & $\{\at{exchange\_code}\}$ & $H_1 = U_H \setminus E$ \\
+  2 & $FD_6$ & \texttt{stock} & $\{\at{ticker}\}$ & $\{\at{ticker}, \at{price\_date}\} \cup H \implies$ \textbf{\texttt{stock\_price\_history}} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{The Watchlist Relation $U_W$}
+
+$\cl{\at{user\_id}, \at{ticker}} = U_W$ (by $FD_8$, $FD_1$, $FD_6$, $FD_5$). Since $FD_2$ gives $\at{email} \rightarrow \at{user\_id}$, $\{\at{email}, \at{ticker}\}$ is also a superkey. Nothing in $U_W$ determines $\at{ticker}$, and neither $\at{user\_id}$ nor $\at{email}$ alone determines it either, so the candidate keys are $\{\at{user\_id}, \at{ticker}\}$ and $\{\at{email}, \at{ticker}\}$. $FD_1$, $FD_2$, $FD_5$ and $FD_6$ violate BCNF.
+\begin{center}
+\begin{tabular}{l l l l l}
+  \toprule
+  \textbf{Step} & \textbf{Violation} & \textbf{Split off} & \textbf{Shared attributes} & \textbf{Remainder} \\
+  \midrule
+  1 & $FD_1$ & \texttt{user} & $\{\at{user\_id}\}$ & $W_1 = U_W \setminus N$ \\
+  2 & $FD_5$ & \texttt{exchange} & $\{\at{exchange\_code}\}$ & $W_2 = W_1 \setminus E$ \\
+  3 & $FD_6$ & \texttt{stock} & $\{\at{ticker}\}$ & $\{\at{user\_id}, \at{ticker}\} \cup W \implies$ \textbf{\texttt{watchlist}} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+Step 1 removes $\at{email}$ with the rest of $N$, so $FD_2$ ends up inside \texttt{user}.
+
+\section{All Eight Relations}
+
+The four decompositions produce eight distinct relations. \texttt{user}, \texttt{exchange}, \texttt{stock} and \texttt{portfolio} are produced by more than one, always with the same attributes:
+\begin{center}
+\begin{tabular}{l l l}
+  \toprule
+  \textbf{Relation} & \textbf{Produced by} & \textbf{Projected FDs} \\
+  \midrule
+  \texttt{user} & $U_T$, $U_O$, $U_W$ & $FD_1$, $FD_2$ \\
+  \texttt{portfolio} & $U_T$, $U_O$ & $FD_3$, $FD_4$ \\
+  \texttt{exchange} & $U_T$, $U_O$, $U_H$, $U_W$ & $FD_5$ \\
+  \texttt{stock} & $U_T$, $U_O$, $U_H$, $U_W$ & $FD_6$ \\
+  \texttt{stock\_price\_history} & $U_H$ & $FD_7$ \\
+  \texttt{watchlist} & $U_W$ & $FD_8$ \\
+  \texttt{transaction} & $U_T$ & $FD_9$ \\
+  \texttt{limit\_order} & $U_O$ & $FD_{10}$ \\
+  \bottomrule
+\end{tabular}
+\end{center}
+This is exactly the schema in \texttt{sql/ddl.sql}. Every FD of $F$ lies inside one relation, so the decomposition also preserves dependencies (see the \emph{Minimal Basis and FD Projection} document). Each universal relation is recovered by joining its own relations, for example
+\[
+  \pi_{\texttt{exchange}}(U_W) \bowtie \pi_{\texttt{stock}}(U_W) \bowtie \pi_{\texttt{user}}(U_W) \bowtie \pi_{\texttt{watchlist}}(U_W) = U_W
+\]
+
+\section{Chase Tests}
+
+The chase checks a whole decomposition at once. Build a tableau with one row per relation. Put the distinguished symbol $a$ in each column the relation contains, and a subscripted $b_{ij}$ (row $i$, column $j$) everywhere else. Each group $N$, $Q$, $E$, $S$, $H$, $W$, $T$ and $O$ can be one column, because each group lies wholly inside or wholly outside every relation, and every FD's right-hand side is a union of whole groups and single attributes. The decomposition is lossless if some row becomes all $a$.
+
+\subsection{$U_T$}
+
+Columns, in order: $\at{transaction\_id}$, $\at{portfolio\_id}$, $\at{user\_id}$, $N$, $Q$, $\at{ticker}$, $\at{exchange\_code}$, $S$, $E$, $T$.
 
 \textbf{Initial tableau:}
 \[
-\begin{array}{l|ccccccc}
-  & \at{transaction\_id} & \at{user\_id} & N & \at{ticker} & S & T & P \\
+\begin{array}{l|cccccccccc}
+  & \at{transaction\_id} & \at{portfolio\_id} & \at{user\_id} & N & Q & \at{ticker} & \at{exchange\_code} & S & E & T \\
   \hline
-  \texttt{user}        & b_{11} & a      & a      & b_{14} & b_{15} & b_{16} & b_{17} \\
-  \texttt{stock}       & b_{21} & b_{22} & b_{23} & a      & a      & b_{26} & b_{27} \\
-  \texttt{holds}       & b_{31} & a      & b_{33} & a      & b_{35} & b_{36} & a      \\
-  \texttt{transaction} & a      & a      & b_{43} & a      & b_{45} & a      & b_{47} \\
+  \texttt{user}        & b_{11} & b_{12} & a      & a      & b_{15} & b_{16} & b_{17} & b_{18} & b_{19} & b_{1,10} \\
+  \texttt{exchange}    & b_{21} & b_{22} & b_{23} & b_{24} & b_{25} & b_{26} & a      & b_{28} & a      & b_{2,10} \\
+  \texttt{stock}       & b_{31} & b_{32} & b_{33} & b_{34} & b_{35} & a      & a      & a      & b_{39} & b_{3,10} \\
+  \texttt{portfolio}   & b_{41} & a      & a      & b_{44} & a      & b_{46} & b_{47} & b_{48} & b_{49} & b_{4,10} \\
+  \texttt{transaction} & a      & a      & b_{53} & b_{54} & b_{55} & a      & b_{57} & b_{58} & b_{59} & a      \\
 \end{array}
 \]
 
 \textbf{Applying the FDs:}
 \begin{enumerate}[leftmargin=*]
-  \item $FD_1$ ($\at{user\_id} \rightarrow N$): rows \texttt{user}, \texttt{holds} and \texttt{transaction} agree on $\at{user\_id} = a$, and \texttt{user} has $N = a$. Set $b_{33} := a$ and $b_{43} := a$.
-  \item $FD_3$ ($\at{ticker} \rightarrow S$): rows \texttt{stock}, \texttt{holds} and \texttt{transaction} agree on $\at{ticker} = a$, and \texttt{stock} has $S = a$. Set $b_{35} := a$ and $b_{45} := a$.
-  \item $FD_5$ ($\at{user\_id}, \at{ticker} \rightarrow P$): rows \texttt{holds} and \texttt{transaction} agree on $\at{user\_id} = a$ and $\at{ticker} = a$, and \texttt{holds} has $P = a$. Set $b_{47} := a$.
+  \item $FD_3$ ($\at{portfolio\_id} \rightarrow \at{user\_id}, Q$): rows \texttt{portfolio} and \texttt{transaction} agree on $\at{portfolio\_id} = a$, and \texttt{portfolio} has $a$ in both columns. Set $b_{53} := a$ and $b_{55} := a$.
+  \item $FD_1$ ($\at{user\_id} \rightarrow N$): rows \texttt{user}, \texttt{portfolio} and \texttt{transaction} now agree on $\at{user\_id} = a$, and \texttt{user} has $N = a$. Set $b_{44} := a$ and $b_{54} := a$.
+  \item $FD_6$ ($\at{ticker} \rightarrow \at{exchange\_code}, S$): rows \texttt{stock} and \texttt{transaction} agree on $\at{ticker} = a$, and \texttt{stock} has $a$ in both columns. Set $b_{57} := a$ and $b_{58} := a$.
+  \item $FD_5$ ($\at{exchange\_code} \rightarrow E$): rows \texttt{exchange}, \texttt{stock} and \texttt{transaction} now agree on $\at{exchange\_code} = a$, and \texttt{exchange} has $E = a$. Set $b_{39} := a$ and $b_{59} := a$.
 \end{enumerate}
 
 \textbf{Final tableau:}
 \[
-\begin{array}{l|ccccccc}
-  & \at{transaction\_id} & \at{user\_id} & N & \at{ticker} & S & T & P \\
+\begin{array}{l|cccccccccc}
+  & \at{transaction\_id} & \at{portfolio\_id} & \at{user\_id} & N & Q & \at{ticker} & \at{exchange\_code} & S & E & T \\
   \hline
-  \texttt{user}        & b_{11} & a      & a      & b_{14} & b_{15} & b_{16} & b_{17} \\
-  \texttt{stock}       & b_{21} & b_{22} & b_{23} & a      & a      & b_{26} & b_{27} \\
-  \texttt{holds}       & b_{31} & a      & a      & a      & a      & b_{36} & a      \\
-  \texttt{transaction} & a      & a      & a      & a      & a      & a      & a      \\
+  \texttt{user}        & b_{11} & b_{12} & a      & a      & b_{15} & b_{16} & b_{17} & b_{18} & b_{19} & b_{1,10} \\
+  \texttt{exchange}    & b_{21} & b_{22} & b_{23} & b_{24} & b_{25} & b_{26} & a      & b_{28} & a      & b_{2,10} \\
+  \texttt{stock}       & b_{31} & b_{32} & b_{33} & b_{34} & b_{35} & a      & a      & a      & a      & b_{3,10} \\
+  \texttt{portfolio}   & b_{41} & a      & a      & a      & a      & b_{46} & b_{47} & b_{48} & b_{49} & b_{4,10} \\
+  \texttt{transaction} & a      & a      & a      & a      & a      & a      & a      & a      & a      & a      \\
 \end{array}
 \]
+The \texttt{transaction} row is now all $a$, so the decomposition of $U_T$ is \textbf{lossless}. This agrees with the step-by-step proof.
 
-The \texttt{transaction} row is now all distinguished symbols ($a$), so the decomposition is \textbf{lossless}. This agrees with the step-by-step proof.
+\subsection{$U_O$}
 
-\subsection*{Joining the Implemented Tables}
+The tableau is the one above with $\at{order\_id}$, $O$ and a \texttt{limit\_order} row in place of $\at{transaction\_id}$, $T$ and the \texttt{transaction} row. The same four FD applications ($FD_3$, $FD_1$, $FD_6$, $FD_5$) make the \texttt{limit\_order} row all $a$, so the decomposition is lossless.
 
-The proof covers instances of $U$, where every user, stock and position belongs to at least one trade. The implemented tables can store more than $U$ can, which is how they remove the insertion anomalies. For example, \texttt{user} stores Isla MacDonald, who has no trades.
+\subsection{$U_H$}
+
+\[
+\begin{array}{l|cccccc}
+  & \at{ticker} & \at{price\_date} & \at{exchange\_code} & S & E & H \\
+  \hline
+  \texttt{exchange}            & b_{11} & b_{12} & a      & b_{14} & a      & b_{16} \\
+  \texttt{stock}               & a      & b_{22} & a      & a      & b_{25} & b_{26} \\
+  \texttt{stock\_price\_history} & a      & a      & b_{33} & b_{34} & b_{35} & a      \\
+\end{array}
+\]
+$FD_6$: rows \texttt{stock} and \texttt{stock\_price\_history} agree on $\at{ticker}$, so set $b_{33} := a$ and $b_{34} := a$. $FD_5$: all three rows now agree on $\at{exchange\_code}$, so set $b_{25} := a$ and $b_{35} := a$. The \texttt{stock\_price\_history} row is all $a$: \textbf{lossless}.
+
+\subsection{$U_W$}
+
+\[
+\begin{array}{l|ccccccc}
+  & \at{user\_id} & N & \at{ticker} & \at{exchange\_code} & S & E & W \\
+  \hline
+  \texttt{user}      & a      & a      & b_{13} & b_{14} & b_{15} & b_{16} & b_{17} \\
+  \texttt{exchange}  & b_{21} & b_{22} & b_{23} & a      & b_{25} & a      & b_{27} \\
+  \texttt{stock}     & b_{31} & b_{32} & a      & a      & a      & b_{36} & b_{37} \\
+  \texttt{watchlist} & a      & b_{42} & a      & b_{44} & b_{45} & b_{46} & a      \\
+\end{array}
+\]
+$FD_1$: rows \texttt{user} and \texttt{watchlist} agree on $\at{user\_id}$, so set $b_{42} := a$. $FD_6$: rows \texttt{stock} and \texttt{watchlist} agree on $\at{ticker}$, so set $b_{44} := a$ and $b_{45} := a$. $FD_5$: rows \texttt{exchange}, \texttt{stock} and \texttt{watchlist} now agree on $\at{exchange\_code}$, so set $b_{36} := a$ and $b_{46} := a$. The \texttt{watchlist} row is all $a$: \textbf{lossless}.
+
+\section{Why Not One Universal Relation?}\label{sec:single}
+
+Suppose instead we took a single universal relation over all of $A$. Three attributes are on no right-hand side of $F$: $\at{transaction\_id}$, $\at{order\_id}$ and $\at{price\_date}$. Every superkey must contain all three, and $\{\at{transaction\_id}, \at{order\_id}, \at{price\_date}\}^+ = A$ ($\at{transaction\_id}$ gives $\at{ticker}$, and then $FD_7$ gives $H$), so this is the only candidate key of $A$.
+
+None of our eight tables contains that key, and the chase shows that the decomposition of $A$ into them is \textbf{lossy}. The three key columns are on no right-hand side, so no chase step ever changes them. At the start, only the \texttt{transaction} row has $a$ under $\at{transaction\_id}$, only \texttt{limit\_order} has $a$ under $\at{order\_id}$, and only \texttt{stock\_price\_history} has $a$ under $\at{price\_date}$. No row can ever have $a$ in all three, so no row becomes all $a$.
+
+The reason is that a row of $A$ would have to pair one trade with one limit order and one day's price, all for the same portfolio and stock. These are independent facts: the FDs say nothing about which trades go with which orders or which days. Joining our tables therefore builds every such combination, including ones the original relation did not have. The textbook fix (3NF synthesis) would add a ninth table holding $(\at{transaction\_id}, \at{order\_id}, \at{price\_date})$, but that table would record nothing real. The better fix is not to put independent facts in one row at all, which is why we use one universal relation per kind of fact.
+
+\section{Joining the Implemented Tables}
+
+The proofs cover instances of the universal relations, where every user, portfolio, stock and exchange appears in at least one row. The implemented tables can store more than that, which is how they remove the insertion anomalies.
 
 Tuples that have no matching tuple in another relation are \textbf{dangling tuples}, and the natural join drops them. In the seed data:
 \begin{itemize}[leftmargin=*]
-  \item user 9 and the stocks CNR and ATD join with no trades;
-  \item 16 of the 82 trades are in positions that have since been closed, and the seed data has no \texttt{holds} row for a closed position. The join of all four tables therefore returns 66 rows, one for each trade in an open position.
+  \item $\texttt{transaction} \bowtie \texttt{portfolio} \bowtie \texttt{user} \bowtie \texttt{stock} \bowtie \texttt{exchange}$ returns 41{,}671 rows, one per trade. The foreign keys guarantee that every trade matches. Dangling: users 165 and 293, the 25 portfolios without trades, the stocks CNR and ATD, and the TSX exchange.
+  \item $\texttt{limit\_order} \bowtie \texttt{portfolio} \bowtie \texttt{user} \bowtie \texttt{stock} \bowtie \texttt{exchange}$ returns 1{,}448 rows, one per order. Dangling: 34 users, 478 portfolios, CNR, ATD and TSX.
+  \item $\texttt{stock\_price\_history} \bowtie \texttt{stock} \bowtie \texttt{exchange}$ returns 840 rows, one per daily price. Nothing dangles: every stock has prices and every exchange lists a stock.
+  \item $\texttt{watchlist} \bowtie \texttt{user} \bowtie \texttt{stock} \bowtie \texttt{exchange}$ returns 1{,}045 rows, one per watchlist entry. Dangling: the 75 users with an empty watchlist.
 \end{itemize}
-Dangling tuples are data that $U$ could never have held. They do not contradict losslessness: projecting any legal instance of $U$ and joining the projections back still returns exactly that instance.
+Dangling tuples are data that the universal relation could never have held. They do not contradict losslessness: projecting any legal instance of a universal relation and joining the projections back still returns exactly that instance.
 
 \section{Counterexample: A Lossy Decomposition}
 
-To show why the test matters, decompose \texttt{holds} so that the shared attributes are not a superkey of either side:
+To show why the test matters, decompose \texttt{limit\_order} so that the shared attributes are not a superkey of either side:
 \[
-  H_1 = \{\at{user\_id}, \at{h\_quantity}\}, \qquad H_2 = \{\at{ticker}, \at{h\_quantity}, \at{average\_price}\}
+  L_1 = \{\at{portfolio\_id}, \at{o\_quantity}\}, \qquad L_2 = \{\at{order\_id}, \at{ticker}\} \cup O
 \]
-Then $H_1 \cap H_2 = \{\at{h\_quantity}\}$, and $\cl{\at{h\_quantity}} = \{\at{h\_quantity}\}$, so neither $\{\at{h\_quantity}\} \rightarrow H_1$ nor $\{\at{h\_quantity}\} \rightarrow H_2$ holds. The test fails.
+Then $L_1 \cap L_2 = \{\at{o\_quantity}\}$, and $\cl{\at{o\_quantity}} = \{\at{o\_quantity}\}$, so neither $\{\at{o\_quantity}\} \rightarrow L_1$ nor $\{\at{o\_quantity}\} \rightarrow L_2$ holds. The test fails.
 
-The seed data has two positions of 33 shares, held by different users in different stocks:
+The seed data has exactly two orders for 28 shares, placed in different portfolios on different stocks (other columns omitted):
 \begin{center}
-\begin{tabular}{c c c c}
+\begin{tabular}{c c c c c c}
   \toprule
-  \texttt{user\_id} & \texttt{ticker} & \texttt{h\_quantity} & \texttt{average\_price} \\
+  \texttt{order\_id} & \texttt{portfolio\_id} & \texttt{ticker} & \texttt{order\_type} & \texttt{target\_price} & \texttt{quantity} \\
   \midrule
-  3 & AMZN & 33 & 199.6300 \\
-  8 & AAPL & 33 & 226.1091 \\
+  220 & 212 & XOM & sell & 118.08 & 28 \\
+  965 & 981 & KO  & sell & 64.86  & 28 \\
   \bottomrule
 \end{tabular}
 \end{center}
 
-$\pi_{H_1}$ contains $(3, 33)$ and $(8, 33)$, and $\pi_{H_2}$ contains $(\text{AMZN}, 33, 199.6300)$ and $(\text{AAPL}, 33, 226.1091)$. Joining them on $\at{h\_quantity} = 33$ pairs every user with every stock:
+$\pi_{L_1}$ contains $(212, 28)$ and $(981, 28)$, and $\pi_{L_2}$ contains the two orders without their portfolios. Joining them on $\at{o\_quantity} = 28$ pairs every portfolio with every order:
 \begin{center}
 \begin{tabular}{c c c c l}
   \toprule
-  \texttt{user\_id} & \texttt{ticker} & \texttt{h\_quantity} & \texttt{average\_price} & \\
+  \texttt{order\_id} & \texttt{portfolio\_id} & \texttt{ticker} & \texttt{quantity} & \\
   \midrule
-  3 & AMZN & 33 & 199.6300 & original \\
-  3 & AAPL & 33 & 226.1091 & \textbf{spurious} \\
-  8 & AMZN & 33 & 199.6300 & \textbf{spurious} \\
-  8 & AAPL & 33 & 226.1091 & original \\
+  220 & 212 & XOM & 28 & original \\
+  220 & 981 & XOM & 28 & \textbf{spurious} \\
+  965 & 212 & KO  & 28 & \textbf{spurious} \\
+  965 & 981 & KO  & 28 & original \\
   \bottomrule
 \end{tabular}
 \end{center}
 
-Over all 22 rows of \texttt{holds}, $\pi_{H_1}(\texttt{holds}) \bowtie \pi_{H_2}(\texttt{holds})$ has 24 rows: the 22 originals plus these 2 spurious tuples. The join claims that user 3 holds AAPL and user 8 holds AMZN, which is false. Since the original relation cannot be recovered, the decomposition is \textbf{lossy}:
+Over all 1{,}448 orders, $\pi_{L_1}(\texttt{limit\_order}) \bowtie \pi_{L_2}(\texttt{limit\_order})$ has 110{,}928 rows: the 1{,}448 originals plus 109{,}480 spurious tuples. The join claims, for example, that order 220 was placed in two different portfolios, which even breaks $FD_{10}$ ($\at{order\_id} \rightarrow \at{portfolio\_id}$). Since the original relation cannot be recovered, the decomposition is \textbf{lossy}:
 \[
-  \pi_{H_1}(\texttt{holds}) \bowtie \pi_{H_2}(\texttt{holds}) \supsetneq \texttt{holds}
+  \pi_{L_1}(\texttt{limit\_order}) \bowtie \pi_{L_2}(\texttt{limit\_order}) \supsetneq \texttt{limit\_order}
 \]
 
 \end{document}

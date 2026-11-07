@@ -10,6 +10,7 @@
 
 \newcommand{\at}[1]{\text{#1}}
 \newcommand{\cl}[1]{\{#1\}^+}
+\newcommand{\gr}[2]{g_{#1}\text{--}g_{#2}}
 
 \title{CSC 370 PaperTrade, Minimal Basis and FD Projection}
 \author{Dryden Bryson}
@@ -22,33 +23,53 @@
 
 \section*{Overview}
 
-This document does two things for the FDs of the \texttt{stock\_trading} database:
+This document does three things for the FDs of the 8-table \texttt{stock\_trading} database:
 \begin{enumerate}[leftmargin=*]
-  \item derives a \textbf{minimal basis} for the full FD set $F$ of the universal relation $U$;
-  \item \textbf{projects} $F$ onto every relation produced by the BCNF decomposition in the \emph{Lossless Join Proof}: the two intermediate relations $U_1$ and $U_2$, and the four final relations \texttt{user}, \texttt{stock}, \texttt{holds} and \texttt{transaction}. Each projection is then reduced to a minimal basis.
+  \item derives a \textbf{minimal basis} $G$ for the full FD set $F$;
+  \item \textbf{projects} $F$ onto every relation used in the \emph{Lossless Join Proof}: the four universal relations $U_T$, $U_O$, $U_H$ and $U_W$, the intermediate relations of their BCNF decompositions, and the eight final relations \texttt{user}, \texttt{portfolio}, \texttt{exchange}, \texttt{stock}, \texttt{stock\_price\_history}, \texttt{watchlist}, \texttt{transaction} and \texttt{limit\_order}. Each projection is reduced to a minimal basis;
+  \item shows that the eight final relations together \textbf{preserve} every FD of $F$.
 \end{enumerate}
-The projections show that every BCNF violation used in the decomposition really holds in the relation where it was used, and that the four final relations together preserve every FD of $F$.
+The projections show that every BCNF violation used in the decomposition really holds in the relation where it was used.
 
 \subsection*{Notation}
 
-As in the \emph{Lossless Join Proof}, $U$ holds every attribute of the database, with the two quantity attributes renamed $\at{t\_quantity}$ (shares in a trade) and $\at{h\_quantity}$ (shares currently held). We group attributes that always appear together:
+As in the \emph{Lossless Join Proof}, $A$ is the set of every attribute in the database. Three attribute names are used by two tables, so in $A$ they are renamed by table:
+\begin{center}
+\begin{tabular}{l l l}
+  \toprule
+  \textbf{Column} & \textbf{Tables} & \textbf{Renamed to} \\
+  \midrule
+  \texttt{quantity} & \texttt{transaction}, \texttt{limit\_order} & $\at{t\_quantity}$, $\at{o\_quantity}$ \\
+  \texttt{target\_price} & \texttt{watchlist}, \texttt{limit\_order} & $\at{w\_target\_price}$, $\at{o\_target\_price}$ \\
+  \texttt{created\_at} & \texttt{portfolio}, \texttt{limit\_order} & $\at{p\_created\_at}$, $\at{o\_created\_at}$ \\
+  \bottomrule
+\end{tabular}
+\end{center}
+Every other shared name (\texttt{user\_id}, \texttt{portfolio\_id}, \texttt{ticker}, \texttt{exchange\_code}) is a foreign key and means the same thing in every table, so it is one attribute of $A$. We group attributes that always appear together:
 \begin{align*}
-  N &= \{\at{name}, \at{email}\} &
-  S &= \{\at{company\_name}, \at{opening\_price}, \at{closing\_price}, \at{exchange}\} \\
-  T &= \{\at{transaction\_type}, \at{t\_quantity}, \at{price}, \at{time}\} &
-  P &= \{\at{h\_quantity}, \at{average\_price}\}
+  N &= \{\at{name}, \at{email}, \at{cash\_balance}\} & Q &= \{\at{portfolio\_name}, \at{p\_created\_at}\} \\
+  E &= \{\at{exchange\_name}, \at{country}, \at{currency}\} & S &= \{\at{company\_name}, \at{sector}\} \\
+  W &= \{\at{w\_target\_price}, \at{added\_at}\} & T &= \{\at{transaction\_type}, \at{t\_quantity}, \at{price}, \at{executed\_at}\} \\
+  H &= \{\at{opening\_price}, \at{closing\_price}, \at{high\_price}, \at{low\_price}, \at{volume}\} \\
+  O &= \{\at{order\_type}, \at{o\_target\_price}, \at{o\_quantity}, \at{status}, \at{o\_created\_at}\}
 \end{align*}
 \[
-  U = \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\} \cup N \cup S \cup T \cup P
+  A = \{\at{user\_id}, \at{portfolio\_id}, \at{exchange\_code}, \at{ticker}, \at{price\_date}, \at{transaction\_id}, \at{order\_id}\} \cup N \cup Q \cup E \cup S \cup H \cup W \cup T \cup O
 \]
+That is 33 attributes: the 42 columns of \texttt{sql/ddl.sql}, minus the 9 repeats of the four foreign keys.
 
 The FD set $F$, from the \emph{Functional Dependencies and Candidate Keys} document:
-\begin{itemize}[leftmargin=*]
-  \item $FD_1$: $\at{user\_id} \rightarrow \at{name}, \at{email}$
+\begin{itemize}[leftmargin=*, nosep]
+  \item $FD_1$: $\at{user\_id} \rightarrow \at{name}, \at{email}, \at{cash\_balance}$
   \item $FD_2$: $\at{email} \rightarrow \at{user\_id}$
-  \item $FD_3$: $\at{ticker} \rightarrow \at{company\_name}, \at{opening\_price}, \at{closing\_price}, \at{exchange}$
-  \item $FD_4$: $\at{transaction\_id} \rightarrow \at{user\_id}, \at{ticker}, \at{transaction\_type}, \at{t\_quantity}, \at{price}, \at{time}$
-  \item $FD_5$: $\at{user\_id}, \at{ticker} \rightarrow \at{h\_quantity}, \at{average\_price}$
+  \item $FD_3$: $\at{portfolio\_id} \rightarrow \at{user\_id}, \at{portfolio\_name}, \at{p\_created\_at}$
+  \item $FD_4$: $\at{user\_id}, \at{portfolio\_name} \rightarrow \at{portfolio\_id}$
+  \item $FD_5$: $\at{exchange\_code} \rightarrow \at{exchange\_name}, \at{country}, \at{currency}$
+  \item $FD_6$: $\at{ticker} \rightarrow \at{company\_name}, \at{sector}, \at{exchange\_code}$
+  \item $FD_7$: $\at{ticker}, \at{price\_date} \rightarrow \at{opening\_price}, \at{closing\_price}, \at{high\_price}, \at{low\_price}, \at{volume}$
+  \item $FD_8$: $\at{user\_id}, \at{ticker} \rightarrow \at{w\_target\_price}, \at{added\_at}$
+  \item $FD_9$: $\at{transaction\_id} \rightarrow \at{portfolio\_id}, \at{ticker}, \at{transaction\_type}, \at{t\_quantity}, \at{price}, \at{executed\_at}$
+  \item $FD_{10}$: $\at{order\_id} \rightarrow \at{portfolio\_id}, \at{ticker}, \at{order\_type}, \at{o\_target\_price}, \at{o\_quantity}, \at{status}, \at{o\_created\_at}$
 \end{itemize}
 
 \section{Minimal Basis of $F$}
@@ -56,56 +77,79 @@ The FD set $F$, from the \emph{Functional Dependencies and Candidate Keys} docum
 A set of FDs $G$ is a \textbf{minimal basis} for $F$ if $G$ is equivalent to $F$ ($G^+ = F^+$) and:
 \begin{enumerate}[label=(\arabic*), leftmargin=*]
   \item every right-hand side is a single attribute;
-  \item no FD can be removed, because no $X \rightarrow A$ in $G$ follows from the other FDs of $G$;
-  \item no left-hand side can be reduced, because for no $X \rightarrow A$ in $G$ and $B \in X$ does $X \setminus \{B\} \rightarrow A$ follow from $G$.
+  \item no FD can be removed, because no $X \rightarrow B$ in $G$ follows from the other FDs of $G$;
+  \item no left-hand side can be reduced, because for no $X \rightarrow B$ in $G$ and $C \in X$ does $X \setminus \{C\} \rightarrow B$ follow from $G$.
 \end{enumerate}
 We build $G$ in three steps, one for each condition.
 
 \subsection*{Step 1: Single-Attribute Right-Hand Sides}
 
-By decomposition, each FD $X \rightarrow A_1 \cdots A_k$ is equivalent to the $k$ FDs $X \rightarrow A_1, \dots, X \rightarrow A_k$ (and union recombines them). Splitting $FD_1$ to $FD_5$ gives 15 FDs:
+By decomposition, each FD $X \rightarrow B_1 \cdots B_k$ is equivalent to the $k$ FDs $X \rightarrow B_1, \dots, X \rightarrow B_k$ (and union recombines them). Splitting $FD_1$ to $FD_{10}$ gives 34 FDs:
 \begin{center}
 \begin{tabular}{l l l}
   \toprule
   \textbf{From} & \textbf{Label} & \textbf{FD} \\
   \midrule
-  $FD_1$ & $g_1$, $g_2$ & $\at{user\_id} \rightarrow \at{name}$, \quad $\at{user\_id} \rightarrow \at{email}$ \\
-  $FD_2$ & $g_3$ & $\at{email} \rightarrow \at{user\_id}$ \\
-  $FD_3$ & $g_4$ -- $g_7$ & $\at{ticker} \rightarrow \at{company\_name}$, \quad $\at{ticker} \rightarrow \at{opening\_price}$, \quad $\at{ticker} \rightarrow \at{closing\_price}$, \quad $\at{ticker} \rightarrow \at{exchange}$ \\
-  $FD_4$ & $g_8$ -- $g_{13}$ & $\at{transaction\_id} \rightarrow A$ for each $A \in \{\at{user\_id}, \at{ticker}, \at{transaction\_type}, \at{t\_quantity}, \at{price}, \at{time}\}$ \\
-  $FD_5$ & $g_{14}$, $g_{15}$ & $\at{user\_id}, \at{ticker} \rightarrow \at{h\_quantity}$, \quad $\at{user\_id}, \at{ticker} \rightarrow \at{average\_price}$ \\
+  $FD_1$ & $\gr{1}{3}$ & $\at{user\_id} \rightarrow B$ for each $B \in N$ \\
+  $FD_2$ & $g_4$ & $\at{email} \rightarrow \at{user\_id}$ \\
+  $FD_3$ & $g_5$, $g_6$, $g_7$ & $\at{portfolio\_id} \rightarrow \at{user\_id}$, \quad $\at{portfolio\_id} \rightarrow \at{portfolio\_name}$, \quad $\at{portfolio\_id} \rightarrow \at{p\_created\_at}$ \\
+  $FD_4$ & $g_8$ & $\at{user\_id}, \at{portfolio\_name} \rightarrow \at{portfolio\_id}$ \\
+  $FD_5$ & $\gr{9}{11}$ & $\at{exchange\_code} \rightarrow B$ for each $B \in E$ \\
+  $FD_6$ & $g_{12}$, $g_{13}$, $g_{14}$ & $\at{ticker} \rightarrow \at{company\_name}$, \quad $\at{ticker} \rightarrow \at{sector}$, \quad $\at{ticker} \rightarrow \at{exchange\_code}$ \\
+  $FD_7$ & $\gr{15}{19}$ & $\at{ticker}, \at{price\_date} \rightarrow B$ for each $B \in H$ \\
+  $FD_8$ & $g_{20}$, $g_{21}$ & $\at{user\_id}, \at{ticker} \rightarrow B$ for each $B \in W$ \\
+  $FD_9$ & $\gr{22}{27}$ & $\at{transaction\_id} \rightarrow B$ for each $B \in \{\at{portfolio\_id}, \at{ticker}\} \cup T$ \\
+  $FD_{10}$ & $\gr{28}{34}$ & $\at{order\_id} \rightarrow B$ for each $B \in \{\at{portfolio\_id}, \at{ticker}\} \cup O$ \\
   \bottomrule
 \end{tabular}
 \end{center}
+In the last two rows the first two labels are the foreign keys: $g_{22}$ is $\at{transaction\_id} \rightarrow \at{portfolio\_id}$, $g_{23}$ is $\at{transaction\_id} \rightarrow \at{ticker}$, and likewise $g_{28}$ and $g_{29}$ for $\at{order\_id}$.
 
 \subsection*{Step 2: Reduce Left-Hand Sides}
 
-Only $g_{14}$ and $g_{15}$ have more than one attribute on the left. For each, we test whether either attribute alone already determines the right-hand side, using closures under the full set $G$:
+Only $g_8$, $\gr{15}{19}$ and $g_{20}$, $g_{21}$ have more than one attribute on the left. For each, we test whether either attribute alone already determines the right-hand side, using closures under the full set $G$:
 \begin{align*}
-  \cl{\at{user\_id}} &= \{\at{user\_id}, \at{name}, \at{email}\} && (g_1, g_2, \text{ then } g_3 \text{ adds nothing new}) \\
-  \cl{\at{ticker}} &= \{\at{ticker}, \at{company\_name}, \at{opening\_price}, \at{closing\_price}, \at{exchange}\} && (g_4 \text{ to } g_7)
+  \cl{\at{user\_id}} &= \{\at{user\_id}\} \cup N && (\gr{1}{3}, \text{ then } g_4 \text{ adds nothing new}) \\
+  \cl{\at{portfolio\_name}} &= \{\at{portfolio\_name}\} && (\text{no FD has a left-hand side inside } \{\at{portfolio\_name}\}) \\
+  \cl{\at{ticker}} &= \{\at{ticker}, \at{exchange\_code}\} \cup S \cup E && (\gr{12}{14}, \text{ then } \gr{9}{11}) \\
+  \cl{\at{price\_date}} &= \{\at{price\_date}\} && (\text{no FD has a left-hand side inside } \{\at{price\_date}\})
 \end{align*}
-Neither closure contains $\at{h\_quantity}$ or $\at{average\_price}$. So neither attribute can be dropped from $g_{14}$ or $g_{15}$: a position is determined by the user and the stock together, not by either one.
+\begin{itemize}[leftmargin=*]
+  \item $g_8$: neither $\cl{\at{user\_id}}$ nor $\cl{\at{portfolio\_name}}$ contains $\at{portfolio\_id}$. A user can have many portfolios, and two users can use the same portfolio name (C.2.4).
+  \item $\gr{15}{19}$: neither $\cl{\at{ticker}}$ nor $\cl{\at{price\_date}}$ meets $H$. A price record belongs to one stock on one day.
+  \item $g_{20}$, $g_{21}$: neither $\cl{\at{user\_id}}$ nor $\cl{\at{ticker}}$ meets $W$. A watchlist entry belongs to one user and one stock together.
+\end{itemize}
+No left-hand side can be reduced.
 
 \subsection*{Step 3: Remove Redundant FDs}
 
-An FD $X \rightarrow A$ is redundant if $A \in X^+$, where the closure is computed with $X \rightarrow A$ itself removed.
+An FD $X \rightarrow B$ is redundant if $B \in X^+$, where the closure is computed with $X \rightarrow B$ itself removed.
 
-\textbf{Shortcut.} If $A \notin X$ and $X \rightarrow A$ is the \emph{only} FD with $A$ on its right-hand side, it cannot be redundant. Without it, the closure algorithm has no FD that adds $A$, and $A$ is not in the starting set $X$.
+\textbf{Shortcut.} If $B \notin X$ and $X \rightarrow B$ is the \emph{only} FD with $B$ on its right-hand side, it cannot be redundant. Without it, the closure algorithm has no FD that adds $B$, and $B$ is not in the starting set $X$.
 
-In $G$, every attribute is on the right-hand side of exactly one FD except $\at{user\_id}$, which is on the right of $g_3$ ($\at{email} \rightarrow \at{user\_id}$) and $g_8$ ($\at{transaction\_id} \rightarrow \at{user\_id}$). By the shortcut, the other 13 FDs are not redundant. We test the remaining two directly:
+In $G$, only three attributes are on the right-hand side of more than one FD:
+\begin{itemize}[leftmargin=*, nosep]
+  \item $\at{user\_id}$: $g_4$ and $g_5$;
+  \item $\at{portfolio\_id}$: $g_8$, $g_{22}$ and $g_{28}$;
+  \item $\at{ticker}$: $g_{23}$ and $g_{29}$.
+\end{itemize}
+By the shortcut, the other 27 FDs are not redundant. Note also that $\at{transaction\_id}$ and $\at{order\_id}$ are on no right-hand side, so a closure only contains them if it starts with them. We test the remaining seven directly:
 \begin{itemize}[leftmargin=*]
-  \item \textbf{$g_3$} ($\at{email} \rightarrow \at{user\_id}$): without $g_3$, no FD has $\at{email}$ alone on its left, so $\cl{\at{email}} = \{\at{email}\}$. This does not contain $\at{user\_id}$, so $g_3$ is not redundant.
-  \item \textbf{$g_8$} ($\at{transaction\_id} \rightarrow \at{user\_id}$): without $g_8$,
+  \item \textbf{$g_4$} ($\at{email} \rightarrow \at{user\_id}$): without $g_4$, no FD has a left-hand side inside $\{\at{email}\}$, so $\cl{\at{email}} = \{\at{email}\}$. Not redundant.
+  \item \textbf{$g_5$} ($\at{portfolio\_id} \rightarrow \at{user\_id}$): without $g_5$, $\cl{\at{portfolio\_id}} = \{\at{portfolio\_id}\} \cup Q$ by $g_6$, $g_7$. Reaching $\at{user\_id}$ would take $g_4$, which needs $\at{email}$, which only $\gr{1}{3}$ give, which need $\at{user\_id}$. Not redundant.
+  \item \textbf{$g_8$} ($\at{user\_id}, \at{portfolio\_name} \rightarrow \at{portfolio\_id}$): without $g_8$, $\cl{\at{user\_id}, \at{portfolio\_name}} = \{\at{user\_id}, \at{portfolio\_name}\} \cup N$. The other FDs for $\at{portfolio\_id}$ need $\at{transaction\_id}$ or $\at{order\_id}$, which are never reached. Not redundant.
+  \item \textbf{$g_{22}$} ($\at{transaction\_id} \rightarrow \at{portfolio\_id}$): without $g_{22}$,
   \[
-    \cl{\at{transaction\_id}} = \{\at{transaction\_id}, \at{ticker}\} \cup T \cup S \quad (g_9 \text{ to } g_{13}, \text{ then } g_4 \text{ to } g_7)
+    \cl{\at{transaction\_id}} = \{\at{transaction\_id}, \at{ticker}, \at{exchange\_code}\} \cup T \cup S \cup E \quad (g_{23} \text{ to } g_{27}, \text{ then } \gr{12}{14}, \gr{9}{11})
   \]
-  Reaching $\at{user\_id}$ would take $g_3$, which needs $\at{email}$, which only $g_2$ gives, which needs $\at{user\_id}$. The closure never gets there, so $g_8$ is not redundant.
+  $g_8$ needs $\at{user\_id}$, which needs $\at{portfolio\_id}$ ($g_5$) or $\at{email}$ ($g_4$, which needs $\at{user\_id}$), and $g_{28}$ needs $\at{order\_id}$. Not redundant.
+  \item \textbf{$g_{23}$} ($\at{transaction\_id} \rightarrow \at{ticker}$): without $g_{23}$, $\cl{\at{transaction\_id}} = \{\at{transaction\_id}, \at{portfolio\_id}, \at{user\_id}\} \cup T \cup Q \cup N$. The only other FD for $\at{ticker}$ is $g_{29}$, which needs $\at{order\_id}$. Not redundant.
+  \item \textbf{$g_{28}$, $g_{29}$}: the same argument with $\at{order\_id}$ and $O$ in place of $\at{transaction\_id}$ and $T$. Not redundant.
 \end{itemize}
 
 \subsection*{Result}
 
-No FD can be removed and no left-hand side can be reduced, so all 15 FDs of Step 1 form a minimal basis $G$ of $F$.
+No FD can be removed and no left-hand side can be reduced, so all 34 FDs of Step 1 form a minimal basis $G = \{g_1, \dots, g_{34}\}$ of $F$.
 
 \textbf{Minimal bases are not unique.} $g_1$ ($\at{user\_id} \rightarrow \at{name}$) could be replaced by $\at{email} \rightarrow \at{name}$, and the set would still be minimal and equivalent to $F$, since $\at{user\_id} \rightarrow \at{email} \rightarrow \at{name}$ recovers $g_1$ by transitivity. We keep $g_1$ because it matches how \texttt{user} is keyed.
 
@@ -113,166 +157,232 @@ No FD can be removed and no left-hand side can be reduced, so all 15 FDs of Step
 
 \subsection*{The Projection Algorithm}
 
-The projection of $F$ onto a relation $R_i \subseteq U$ is the set of all FDs $X \rightarrow A$ in $F^+$ with $X \cup \{A\} \subseteq R_i$. It is computed by taking every $X \subseteq R_i$, finding the closure $X^+$ under $F$ in all of $U$, and adding
+The projection of $F$ onto a relation $R \subseteq A$ is the set of all FDs $X \rightarrow B$ in $F^+$ with $X \cup \{B\} \subseteq R$. It is computed by taking every $X \subseteq R$, finding the closure $X^+$ under $F$ in all of $A$, and adding
 \[
-  X \rightarrow (X^+ \cap R_i) \setminus X
+  X \rightarrow (X^+ \cap R) \setminus X
 \]
-The closure must be taken in $U$, not in $R_i$, because a derivation can pass through attributes outside $R_i$. The result is then reduced to a minimal basis.
+The closure must be taken in $A$, not in $R$, because a derivation can pass through attributes outside $R$. The result is then reduced to a minimal basis.
 
-Trying all $2^{|R_i|}$ subsets is unnecessary. Three rules let us skip subsets without missing any FD:
+Trying all $2^{|R|}$ subsets is unnecessary. These rules let us skip subsets without missing any FD:
 \begin{enumerate}[label=(R\arabic*), leftmargin=*]
   \item \textbf{Empty set:} no FD has an empty left-hand side, so $\emptyset^+ = \emptyset$ gives nothing.
-  \item \textbf{Supersets of a superkey:} if $X^+ \supseteq R_i$, every $Y \supseteq X$ only gives FDs that follow from $X \rightarrow R_i$ by augmentation and decomposition, so they can be skipped.
-  \item \textbf{Attributes on no left-hand side:} let $L = \{\at{transaction\_id}, \at{user\_id}, \at{email}, \at{ticker}\}$, the attributes that appear on some left-hand side of $F$. If $X = Y \cup Z$ with $Z \cap L = \emptyset$, then adding $Z$ cannot fire any new FD, so $X^+ = Y^+ \cup Z$. The FD from $X$ is then an augmentation of the FD from $Y$. So only subsets of $R_i \cap L$ need to be tried.
+  \item \textbf{Supersets of a superkey:} if $X^+ \supseteq R$, every $Y \supseteq X$ only gives FDs that follow from $X \rightarrow R$ by augmentation and decomposition.
+  \item \textbf{Attributes on no left-hand side:} let
+  \[ L = \{\at{user\_id}, \at{email}, \at{portfolio\_id}, \at{portfolio\_name}, \at{exchange\_code}, \at{ticker}, \at{price\_date}, \at{transaction\_id}, \at{order\_id}\}, \]
+  the attributes on some left-hand side of $G$. If $X = Y \cup Z$ with $Z \cap L = \emptyset$, adding $Z$ cannot fire any new FD, so $X^+ = Y^+ \cup Z$. Only subsets of $R \cap L$ need to be tried.
+  \item \textbf{Single attributes combine by union:} if $X^+$ equals the union of $\{C\}^+$ over $C \in X$, the FD from $X$ follows from the single-attribute FDs by augmentation and union. The union of single-attribute closures is already closed under every FD with a one-attribute left-hand side, so $X^+$ can only be bigger if it contains one of the three two-attribute left-hand sides $\{\at{user\_id}, \at{portfolio\_name}\}$, $\{\at{ticker}, \at{price\_date}\}$ or $\{\at{user\_id}, \at{ticker}\}$ without any single member of $X$ reaching it. So beyond single attributes we only test $\{\at{user\_id}, \at{portfolio\_name}\}$, $\{\at{ticker}, \at{price\_date}\}$, $\{\at{user\_id}, \at{ticker}\}$ and $\{\at{portfolio\_id}, \at{ticker}\}$ ($\at{portfolio\_id}$ also reaches $\at{user\_id}$), when they lie in $R$.
+  \item \textbf{$\at{email}$ and $\at{user\_id}$:} each determines the other, and every relation that contains $\at{email}$ also contains $\at{user\_id}$. A set using $\at{email}$ has the same closure as the set using $\at{user\_id}$ instead, so we test the $\at{user\_id}$ version only, plus $\{\at{email}\}$ itself.
 \end{enumerate}
 
 \subsection*{Closures Used Below}
 
-These are computed once, under $F$ in all of $U$:
+These are computed once, under $G$ in all of $A$:
 \begin{align*}
-  \cl{\at{user\_id}} &= \{\at{user\_id}\} \cup N && (FD_1) \\
-  \cl{\at{email}} &= \{\at{user\_id}\} \cup N && (FD_2, \text{ then } FD_1) \\
-  \cl{\at{ticker}} &= \{\at{ticker}\} \cup S && (FD_3) \\
-  \cl{\at{user\_id}, \at{ticker}} &= \{\at{user\_id}, \at{ticker}\} \cup N \cup S \cup P && (FD_1, FD_3, FD_5) \\
-  \cl{\at{transaction\_id}} &= U && (FD_4, \text{ then } FD_1, FD_3, FD_5)
+  \cl{\at{user\_id}} = \cl{\at{email}} &= \{\at{user\_id}\} \cup N && (\gr{1}{3}; \ g_4 \text{ then } \gr{1}{3}) \\
+  \cl{\at{portfolio\_id}} &= \{\at{portfolio\_id}, \at{user\_id}\} \cup Q \cup N && (\gr{5}{7}, \text{ then } \gr{1}{3}) \\
+  \cl{\at{portfolio\_name}} &= \{\at{portfolio\_name}\} \\
+  \cl{\at{exchange\_code}} &= \{\at{exchange\_code}\} \cup E && (\gr{9}{11}) \\
+  \cl{\at{ticker}} &= \{\at{ticker}, \at{exchange\_code}\} \cup S \cup E && (\gr{12}{14}, \text{ then } \gr{9}{11}) \\
+  \cl{\at{price\_date}} &= \{\at{price\_date}\} \\
+  \cl{\at{user\_id}, \at{portfolio\_name}} &= \cl{\at{portfolio\_id}} && (g_8, \text{ then as above}) \\
+  \cl{\at{ticker}, \at{price\_date}} &= \cl{\at{ticker}} \cup \{\at{price\_date}\} \cup H && (\gr{15}{19}) \\
+  \cl{\at{user\_id}, \at{ticker}} &= \cl{\at{user\_id}} \cup \cl{\at{ticker}} \cup W && (g_{20}, g_{21}) \\
+  \cl{\at{portfolio\_id}, \at{ticker}} &= \cl{\at{portfolio\_id}} \cup \cl{\at{ticker}} \cup W && (g_5, \text{ then } g_{20}, g_{21}) \\
+  \cl{\at{transaction\_id}} &= \{\at{transaction\_id}\} \cup T \cup \cl{\at{portfolio\_id}, \at{ticker}} && (\gr{22}{27}, \text{ then as above}) \\
+  \cl{\at{order\_id}} &= \{\at{order\_id}\} \cup O \cup \cl{\at{portfolio\_id}, \at{ticker}} && (\gr{28}{34}, \text{ then as above})
 \end{align*}
-$\at{email}$ is in no relation except \texttt{user}, so it only matters there.
 
-\subsection{Intermediate Relation $U_1$}
+\textbf{Notation.} For a relation $R$, write $G[R] = \{g \in G : \text{every attribute of } g \text{ is in } R\}$. Every projection below turns out to have $G[R]$ as its minimal basis: no FD outside $G$ survives the reduction. Where a derived FD could have appeared, we point it out.
 
-$U_1 = \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\} \cup S \cup T \cup P$, left after Step 1 of the decomposition removes $N$. Here $R_i \cap L = \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\}$.
+\section{Projections onto the Universal Relations}
 
+The \emph{Lossless Join Proof} uses one universal relation per kind of fact:
+\begin{align*}
+  U_T &= \{\at{transaction\_id}, \at{portfolio\_id}, \at{user\_id}, \at{ticker}, \at{exchange\_code}\} \cup N \cup Q \cup S \cup E \cup T && \text{(one row per trade)} \\
+  U_O &= \{\at{order\_id}, \at{portfolio\_id}, \at{user\_id}, \at{ticker}, \at{exchange\_code}\} \cup N \cup Q \cup S \cup E \cup O && \text{(one row per limit order)} \\
+  U_H &= \{\at{ticker}, \at{price\_date}, \at{exchange\_code}\} \cup S \cup E \cup H && \text{(one row per daily price)} \\
+  U_W &= \{\at{user\_id}, \at{ticker}, \at{exchange\_code}\} \cup N \cup S \cup E \cup W && \text{(one row per watchlist entry)}
+\end{align*}
+
+\subsection{$U_T$}
+
+\[ U_T \cap L = \{\at{transaction\_id}, \at{portfolio\_id}, \at{user\_id}, \at{email}, \at{portfolio\_name}, \at{ticker}, \at{exchange\_code}\} \]
+Every set containing $\at{transaction\_id}$ is skipped by (R2).
 \begin{center}
 \begin{tabular}{l l l}
   \toprule
-  $X$ & $(X^+ \cap U_1) \setminus X$ & \textbf{Projected FD} \\
+  $X$ & $(X^+ \cap U_T) \setminus X$ & \textbf{Projected FD} \\
   \midrule
-  $\{\at{transaction\_id}\}$ & $\{\at{user\_id}, \at{ticker}\} \cup S \cup T \cup P$ & $\at{transaction\_id} \rightarrow \at{user\_id}, \at{ticker}, S, T, P$ \\
-  $\{\at{user\_id}\}$ & $\emptyset$ ($N$ is not in $U_1$) & none \\
-  $\{\at{ticker}\}$ & $S$ & $\at{ticker} \rightarrow S$ \\
-  $\{\at{user\_id}, \at{ticker}\}$ & $S \cup P$ & $\at{user\_id}, \at{ticker} \rightarrow S, P$ \\
+  $\{\at{transaction\_id}\}$ & everything else ($W \not\subseteq U_T$) & superkey \\
+  $\{\at{portfolio\_id}\}$ & $\{\at{user\_id}\} \cup Q \cup N$ & $\at{portfolio\_id} \rightarrow \at{user\_id}, Q, N$ \\
+  $\{\at{user\_id}\}$ & $N$ & $\at{user\_id} \rightarrow N$ \\
+  $\{\at{email}\}$ & $\{\at{user\_id}\} \cup N \setminus \{\at{email}\}$ & $\at{email} \rightarrow \at{user\_id}, \at{name}, \at{cash\_balance}$ \\
+  $\{\at{portfolio\_name}\}$ & $\emptyset$ & none \\
+  $\{\at{ticker}\}$ & $\{\at{exchange\_code}\} \cup S \cup E$ & $\at{ticker} \rightarrow \at{exchange\_code}, S, E$ \\
+  $\{\at{exchange\_code}\}$ & $E$ & $\at{exchange\_code} \rightarrow E$ \\
+  $\{\at{user\_id}, \at{portfolio\_name}\}$ & $\{\at{portfolio\_id}, \at{p\_created\_at}\} \cup N$ & $\at{user\_id}, \at{portfolio\_name} \rightarrow \at{portfolio\_id}, \at{p\_created\_at}, N$ \\
+  $\{\at{user\_id}, \at{ticker}\}$ & union of single rows & nothing new ($W \not\subseteq U_T$) \\
+  $\{\at{portfolio\_id}, \at{ticker}\}$ & union of single rows & nothing new ($W \not\subseteq U_T$) \\
   \bottomrule
 \end{tabular}
 \end{center}
-Every other subset of $R_i \cap L$ contains $\at{transaction\_id}$, so it is skipped by (R2).
 
 \textbf{Minimal basis of the projection.} After splitting right-hand sides:
 \begin{itemize}[leftmargin=*]
-  \item $\at{transaction\_id} \rightarrow A$ for $A \in S$ is redundant: $\at{transaction\_id} \rightarrow \at{ticker} \rightarrow A$.
-  \item $\at{transaction\_id} \rightarrow A$ for $A \in P$ is redundant: $\at{transaction\_id} \rightarrow \at{user\_id}, \at{ticker} \rightarrow A$.
-  \item $\at{user\_id}, \at{ticker} \rightarrow A$ for $A \in S$ reduces on the left to $\at{ticker} \rightarrow A$, which is already in the set.
+  \item $\at{transaction\_id} \rightarrow B$ for $B \notin \{\at{portfolio\_id}, \at{ticker}\} \cup T$ is redundant: it follows through $\at{portfolio\_id}$ or $\at{ticker}$.
+  \item $\at{portfolio\_id} \rightarrow B$ for $B \in N$ is redundant: $\at{portfolio\_id} \rightarrow \at{user\_id} \rightarrow B$.
+  \item $\at{email} \rightarrow \at{name}$ and $\at{email} \rightarrow \at{cash\_balance}$ are redundant: $\at{email} \rightarrow \at{user\_id} \rightarrow B$.
+  \item $\at{ticker} \rightarrow B$ for $B \in E$ is redundant: $\at{ticker} \rightarrow \at{exchange\_code} \rightarrow B$.
+  \item $\at{user\_id}, \at{portfolio\_name} \rightarrow B$ for $B \neq \at{portfolio\_id}$ is redundant: it follows through $\at{portfolio\_id}$ or reduces to $\at{user\_id} \rightarrow B$.
 \end{itemize}
 \[
-  F_{U_1} = \{\at{ticker} \rightarrow A : A \in S\} \cup \{\at{user\_id}, \at{ticker} \rightarrow A : A \in P\} \cup \{\at{transaction\_id} \rightarrow A : A \in \{\at{user\_id}, \at{ticker}\} \cup T\}
+  F_{U_T} = \{\gr{1}{14}\} \cup \{\gr{22}{27}\} = G[U_T]
 \]
-That is $FD_3$, $FD_5$ and $FD_4$, split. $FD_1$ and $FD_2$ do not project, because $N \cap U_1 = \emptyset$. Since $\cl{\at{ticker}} \cap U_1 = \{\at{ticker}\} \cup S \neq U_1$, the FD $\at{ticker} \rightarrow S$ violates BCNF in $U_1$, which is the violation Step 2 of the decomposition removes.
+\textbf{A derived FD that stays out.} $\at{transaction\_id} \rightarrow W$ is in $F^+$: a trade fixes the portfolio, so the user, and the stock, and $FD_8$ then fixes the watchlist entry. It does not project onto $U_T$ only because $W \not\subseteq U_T$. A user does not have to watch a stock to trade it, so $U_T$ leaves $W$ out.
 
-\subsection{Intermediate Relation $U_2$}
+\subsection{$U_O$}
 
-$U_2 = \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\} \cup T \cup P$, left after Step 2 removes $S$. Again $R_i \cap L = \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\}$.
+Identical to $U_T$, with $\at{order\_id}$ and $O$ in place of $\at{transaction\_id}$ and $T$:
+\[
+  F_{U_O} = \{\gr{1}{14}\} \cup \{\gr{28}{34}\} = G[U_O]
+\]
 
+\subsection{$U_H$}
+
+$U_H \cap L = \{\at{ticker}, \at{price\_date}, \at{exchange\_code}\}$.
 \begin{center}
 \begin{tabular}{l l l}
   \toprule
-  $X$ & $(X^+ \cap U_2) \setminus X$ & \textbf{Projected FD} \\
+  $X$ & $(X^+ \cap U_H) \setminus X$ & \textbf{Projected FD} \\
   \midrule
-  $\{\at{transaction\_id}\}$ & $\{\at{user\_id}, \at{ticker}\} \cup T \cup P$ & $\at{transaction\_id} \rightarrow \at{user\_id}, \at{ticker}, T, P$ \\
-  $\{\at{user\_id}\}$ & $\emptyset$ & none \\
-  $\{\at{ticker}\}$ & $\emptyset$ ($S$ is not in $U_2$) & none \\
-  $\{\at{user\_id}, \at{ticker}\}$ & $P$ & $\at{user\_id}, \at{ticker} \rightarrow P$ \\
+  $\{\at{ticker}\}$ & $\{\at{exchange\_code}\} \cup S \cup E$ & $\at{ticker} \rightarrow \at{exchange\_code}, S, E$ \\
+  $\{\at{price\_date}\}$ & $\emptyset$ & none \\
+  $\{\at{exchange\_code}\}$ & $E$ & $\at{exchange\_code} \rightarrow E$ \\
+  $\{\at{ticker}, \at{price\_date}\}$ & everything else & superkey \\
+  \bottomrule
+\end{tabular}
+\end{center}
+Removing $\at{ticker} \rightarrow E$ (it follows through $\at{exchange\_code}$) and the parts of the superkey FD that follow from $\at{ticker}$ alone:
+\[
+  F_{U_H} = \{\gr{9}{19}\} = G[U_H]
+\]
+
+\subsection{$U_W$}
+
+$U_W \cap L = \{\at{user\_id}, \at{email}, \at{ticker}, \at{exchange\_code}\}$. The single-attribute rows are the same as in $U_T$ ($\at{user\_id} \rightarrow N$, $\at{email} \rightarrow \at{user\_id}$, $\at{ticker} \rightarrow \at{exchange\_code}, S, E$, $\at{exchange\_code} \rightarrow E$), and $\cl{\at{user\_id}, \at{ticker}} \supseteq U_W$, so $\{\at{user\_id}, \at{ticker}\}$ is a superkey. Reducing as before:
+\[
+  F_{U_W} = \{\gr{1}{4}\} \cup \{\gr{9}{14}\} \cup \{g_{20}, g_{21}\} = G[U_W]
+\]
+
+\section{Projections onto the Intermediate Relations}
+
+Each step of the decomposition removes one group of attributes. The tables give $(X^+ \cap R) \setminus X$ for every $X$ the rules leave, and the last row names the BCNF violation that the next step removes: an FD whose left-hand side is not a superkey of $R$.
+
+\subsection{Decomposition of $U_T$}
+
+\[
+  T_1 = U_T \setminus N, \qquad T_2 = T_1 \setminus E, \qquad T_3 = T_2 \setminus (S \cup \{\at{exchange\_code}\}) = \{\at{transaction\_id}, \at{portfolio\_id}, \at{user\_id}, \at{ticker}\} \cup Q \cup T
+\]
+\begin{center}
+\small
+\begin{tabular}{l l l l}
+  \toprule
+  $X$ & $T_1$ & $T_2$ & $T_3$ \\
+  \midrule
+  $\{\at{transaction\_id}\}$ & superkey & superkey & superkey \\
+  $\{\at{portfolio\_id}\}$ & $\{\at{user\_id}\} \cup Q$ & $\{\at{user\_id}\} \cup Q$ & $\{\at{user\_id}\} \cup Q$ \\
+  $\{\at{user\_id}\}$ & $\emptyset$ ($N$ removed) & $\emptyset$ & $\emptyset$ \\
+  $\{\at{portfolio\_name}\}$ & $\emptyset$ & $\emptyset$ & $\emptyset$ \\
+  $\{\at{user\_id}, \at{portfolio\_name}\}$ & $\{\at{portfolio\_id}, \at{p\_created\_at}\}$ & $\{\at{portfolio\_id}, \at{p\_created\_at}\}$ & $\{\at{portfolio\_id}, \at{p\_created\_at}\}$ \\
+  $\{\at{ticker}\}$ & $\{\at{exchange\_code}\} \cup S \cup E$ & $\{\at{exchange\_code}\} \cup S$ & $\emptyset$ \\
+  $\{\at{exchange\_code}\}$ & $E$ & $\emptyset$ ($E$ removed) & not in $T_3$ \\
+  $\{\at{user\_id}, \at{ticker}\}$ & nothing new & nothing new & nothing new \\
+  $\{\at{portfolio\_id}, \at{ticker}\}$ & nothing new & nothing new & nothing new \\
+  \midrule
+  \textbf{Minimal basis} & $\gr{5}{14}$, $\gr{22}{27}$ & $\gr{5}{8}$, $\gr{12}{14}$, $\gr{22}{27}$ & $\gr{5}{8}$, $\gr{22}{27}$ \\
+  \textbf{Next violation} & $\gr{9}{11}$ & $\gr{12}{14}$ & $\gr{5}{7}$ \\
+  \bottomrule
+\end{tabular}
+\end{center}
+The violations are $\at{exchange\_code} \rightarrow E$ in $T_1$, $\at{ticker} \rightarrow \at{exchange\_code}, S$ in $T_2$, and $\at{portfolio\_id} \rightarrow \at{user\_id}, Q$ in $T_3$. In each case the left-hand side does not reach $\at{transaction\_id}$, the only key, so it is not a superkey. $g_8$ is also a violation in $T_3$; it ends up inside \texttt{portfolio} along with $\gr{5}{7}$.
+
+\textbf{Why exchange goes before stock.} $T_2$ is formed by removing $E$ while $\at{exchange\_code}$ is still present. Had we split off \texttt{stock} first, the remaining relation would hold $\at{ticker}$ and $E$ but not $\at{exchange\_code}$, and its projection would contain the derived FD $\at{ticker} \rightarrow E$, which is not in $G$. That relation would need another split and would not match our tables. Removing groups from the ``leaves'' of the FD graph inward (user, exchange, stock, portfolio) keeps every projection equal to $G[R]$.
+
+\subsection{Decomposition of $U_O$}
+
+Identical to $U_T$, with $O_1 = U_O \setminus N$, $O_2 = O_1 \setminus E$ and $O_3 = O_2 \setminus (S \cup \{\at{exchange\_code}\})$, and $\gr{28}{34}$ in place of $\gr{22}{27}$. The violations removed are again $\gr{9}{11}$, $\gr{12}{14}$ and $\gr{5}{7}$.
+
+\subsection{Decomposition of $U_H$}
+
+$H_1 = U_H \setminus E = \{\at{ticker}, \at{price\_date}, \at{exchange\_code}\} \cup S \cup H$. In $H_1$, $\at{ticker}$ gives $\{\at{exchange\_code}\} \cup S$, $\at{exchange\_code}$ and $\at{price\_date}$ give nothing, and $\{\at{ticker}, \at{price\_date}\}$ is a superkey. Minimal basis $\gr{12}{19}$. Next violation: $\gr{12}{14}$.
+
+\subsection{Decomposition of $U_W$}
+
+$W_1 = U_W \setminus N$ and $W_2 = W_1 \setminus E$. In both, $\at{user\_id}$ gives nothing (as $N$ is removed) and $\{\at{user\_id}, \at{ticker}\}$ is a superkey. In $W_1$, $\at{ticker}$ gives $\{\at{exchange\_code}\} \cup S \cup E$ and $\at{exchange\_code}$ gives $E$: minimal basis $\gr{9}{14}$, $g_{20}$, $g_{21}$, next violation $\gr{9}{11}$. In $W_2$, $\at{ticker}$ gives $\{\at{exchange\_code}\} \cup S$: minimal basis $\gr{12}{14}$, $g_{20}$, $g_{21}$, next violation $\gr{12}{14}$.
+
+\section{Projections onto the Final Relations}
+
+\begin{center}
+\begin{tabular}{l l l l}
+  \toprule
+  \textbf{Relation} & $X$ & $(X^+ \cap R) \setminus X$ & \textbf{Minimal basis} \\
+  \midrule
+  \texttt{user} & $\{\at{user\_id}\}$ & $N$ & \\
+                & $\{\at{email}\}$ & $\{\at{user\_id}, \at{name}, \at{cash\_balance}\}$ & $\gr{1}{4}$ \\
+  \midrule
+  \texttt{portfolio} & $\{\at{portfolio\_id}\}$ & $\{\at{user\_id}\} \cup Q$ & \\
+                     & $\{\at{user\_id}\}$, $\{\at{portfolio\_name}\}$ & $\emptyset$ & \\
+                     & $\{\at{user\_id}, \at{portfolio\_name}\}$ & $\{\at{portfolio\_id}, \at{p\_created\_at}\}$ & $\gr{5}{8}$ \\
+  \midrule
+  \texttt{exchange} & $\{\at{exchange\_code}\}$ & $E$ & $\gr{9}{11}$ \\
+  \midrule
+  \texttt{stock} & $\{\at{ticker}\}$ & $\{\at{exchange\_code}\} \cup S$ & \\
+                 & $\{\at{exchange\_code}\}$ & $\emptyset$ ($E$ is not in \texttt{stock}) & $\gr{12}{14}$ \\
+  \midrule
+  \texttt{stock\_price\_history} & $\{\at{ticker}\}$, $\{\at{price\_date}\}$ & $\emptyset$ & \\
+                                 & $\{\at{ticker}, \at{price\_date}\}$ & $H$ & $\gr{15}{19}$ \\
+  \midrule
+  \texttt{watchlist} & $\{\at{user\_id}\}$, $\{\at{ticker}\}$ & $\emptyset$ & \\
+                     & $\{\at{user\_id}, \at{ticker}\}$ & $W$ & $g_{20}$, $g_{21}$ \\
+  \midrule
+  \texttt{transaction} & $\{\at{transaction\_id}\}$ & $\{\at{portfolio\_id}, \at{ticker}\} \cup T$ & \\
+                       & $\{\at{portfolio\_id}\}$, $\{\at{ticker}\}$, $\{\at{portfolio\_id}, \at{ticker}\}$ & $\emptyset$ & $\gr{22}{27}$ \\
+  \midrule
+  \texttt{limit\_order} & $\{\at{order\_id}\}$ & $\{\at{portfolio\_id}, \at{ticker}\} \cup O$ & \\
+                        & $\{\at{portfolio\_id}\}$, $\{\at{ticker}\}$, $\{\at{portfolio\_id}, \at{ticker}\}$ & $\emptyset$ & $\gr{28}{34}$ \\
   \bottomrule
 \end{tabular}
 \end{center}
 
-\textbf{A derived FD appears.} $\at{transaction\_id} \rightarrow \at{h\_quantity}$ is not in $F$. It holds in $U_2$ because $FD_4$ and $FD_5$ chain through $\at{user\_id}, \at{ticker}$ by transitivity. Projection has to keep FDs like this: computing closures in $U$, rather than only copying FDs from $F$ whose attributes fit in $U_2$, is what finds them. In this case it is redundant once $FD_4$ and $FD_5$ are both present, so the minimal basis drops it:
-\[
-  F_{U_2} = \{\at{user\_id}, \at{ticker} \rightarrow A : A \in P\} \cup \{\at{transaction\_id} \rightarrow A : A \in \{\at{user\_id}, \at{ticker}\} \cup T\}
-\]
-Since $\cl{\at{user\_id}, \at{ticker}} \cap U_2 = \{\at{user\_id}, \at{ticker}\} \cup P$ does not contain $\at{transaction\_id}$, $\{\at{user\_id}, \at{ticker}\}$ is not a superkey of $U_2$. $FD_5$ violates BCNF here, which is the violation Step 3 removes.
-
-\subsection{Final Relations}
-
-\subsubsection*{\texttt{user} $= \{\at{user\_id}, \at{name}, \at{email}\}$}
-
-$R_i \cap L = \{\at{user\_id}, \at{email}\}$. $\{\at{user\_id}, \at{email}\}$ is a superset of a superkey, so it is skipped by (R2).
-\begin{center}
-\begin{tabular}{l l l}
-  \toprule
-  $X$ & $(X^+ \cap \texttt{user}) \setminus X$ & \textbf{Projected FD} \\
-  \midrule
-  $\{\at{user\_id}\}$ & $\{\at{name}, \at{email}\}$ & $\at{user\_id} \rightarrow \at{name}, \at{email}$ \\
-  $\{\at{email}\}$ & $\{\at{user\_id}, \at{name}\}$ & $\at{email} \rightarrow \at{user\_id}, \at{name}$ \\
-  \bottomrule
-\end{tabular}
-\end{center}
-Splitting gives $\at{user\_id} \rightarrow \at{name}$, $\at{user\_id} \rightarrow \at{email}$, $\at{email} \rightarrow \at{user\_id}$ and $\at{email} \rightarrow \at{name}$. Testing $\at{email} \rightarrow \at{name}$ first: without it, $\cl{\at{email}} = \{\at{email}, \at{user\_id}, \at{name}\}$, which contains $\at{name}$, so it is redundant. The other three each have the only FD for their right-hand side, so none can be removed:
-\[
-  F_{\texttt{user}} = \{\at{user\_id} \rightarrow \at{name},\; \at{user\_id} \rightarrow \at{email},\; \at{email} \rightarrow \at{user\_id}\} = \{g_1, g_2, g_3\}
-\]
-
-\subsubsection*{\texttt{stock} $= \{\at{ticker}\} \cup S$}
-
-$R_i \cap L = \{\at{ticker}\}$, and $\cl{\at{ticker}} \cap \texttt{stock} = \texttt{stock}$:
-\[
-  F_{\texttt{stock}} = \{\at{ticker} \rightarrow A : A \in S\} = \{g_4, \dots, g_7\}
-\]
-
-\subsubsection*{\texttt{holds} $= \{\at{user\_id}, \at{ticker}\} \cup P$}
-
-$R_i \cap L = \{\at{user\_id}, \at{ticker}\}$.
-\begin{center}
-\begin{tabular}{l l l}
-  \toprule
-  $X$ & $(X^+ \cap \texttt{holds}) \setminus X$ & \textbf{Projected FD} \\
-  \midrule
-  $\{\at{user\_id}\}$ & $\emptyset$ ($N$ is not in \texttt{holds}) & none \\
-  $\{\at{ticker}\}$ & $\emptyset$ ($S$ is not in \texttt{holds}) & none \\
-  $\{\at{user\_id}, \at{ticker}\}$ & $P$ & $\at{user\_id}, \at{ticker} \rightarrow P$ \\
-  \bottomrule
-\end{tabular}
-\end{center}
-Neither attribute alone gives anything, so the left-hand side cannot be reduced:
-\[
-  F_{\texttt{holds}} = \{\at{user\_id}, \at{ticker} \rightarrow \at{h\_quantity},\; \at{user\_id}, \at{ticker} \rightarrow \at{average\_price}\} = \{g_{14}, g_{15}\}
-\]
-
-\subsubsection*{\texttt{transaction} $= \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\} \cup T$}
-
-$R_i \cap L = \{\at{transaction\_id}, \at{user\_id}, \at{ticker}\}$.
-\begin{center}
-\begin{tabular}{l l l}
-  \toprule
-  $X$ & $(X^+ \cap \texttt{transaction}) \setminus X$ & \textbf{Projected FD} \\
-  \midrule
-  $\{\at{transaction\_id}\}$ & $\{\at{user\_id}, \at{ticker}\} \cup T$ & $\at{transaction\_id} \rightarrow \at{user\_id}, \at{ticker}, T$ \\
-  $\{\at{user\_id}\}$ & $\emptyset$ & none \\
-  $\{\at{ticker}\}$ & $\emptyset$ & none \\
-  $\{\at{user\_id}, \at{ticker}\}$ & $\emptyset$ ($N$, $S$ and $P$ are not in \texttt{transaction}) & none \\
-  \bottomrule
-\end{tabular}
-\end{center}
-$\{\at{user\_id}, \at{ticker}\}$ determines nothing here. $FD_5$ does not carry over, because its right-hand side $P$ is in \texttt{holds}, not \texttt{transaction}. This is why one user can trade the same stock many times:
-\[
-  F_{\texttt{transaction}} = \{\at{transaction\_id} \rightarrow A : A \in \{\at{user\_id}, \at{ticker}\} \cup T\} = \{g_8, \dots, g_{13}\}
-\]
+Notes on the reductions:
+\begin{itemize}[leftmargin=*]
+  \item \texttt{user}: $\at{email} \rightarrow \at{name}$ and $\at{email} \rightarrow \at{cash\_balance}$ are redundant ($\at{email} \rightarrow \at{user\_id} \rightarrow B$). The other four each have the only FD for their right-hand side.
+  \item \texttt{portfolio}: $\at{user\_id}, \at{portfolio\_name} \rightarrow \at{p\_created\_at}$ is redundant ($\rightarrow \at{portfolio\_id} \rightarrow \at{p\_created\_at}$). $g_8$ cannot be reduced, because neither $\at{user\_id}$ nor $\at{portfolio\_name}$ alone gives anything here.
+  \item \texttt{transaction} and \texttt{limit\_order}: $\{\at{portfolio\_id}, \at{ticker}\}$ determines nothing. In $A$ it reaches $\at{user\_id}$ and then $W$, but neither is in these relations. This is why one portfolio can trade the same stock, or place orders on it, many times.
+\end{itemize}
+Every left-hand side in each final minimal basis is a superkey of its relation, so all eight relations are in BCNF, matching the \emph{Functional Dependencies and Candidate Keys} document.
 
 \section{Dependency Preservation}
 
-The minimal bases of the four final projections are disjoint, and together they are exactly $G$:
+The minimal bases of the eight final projections are disjoint, and together they are exactly $G$:
 \[
-  F_{\texttt{user}} \cup F_{\texttt{stock}} \cup F_{\texttt{holds}} \cup F_{\texttt{transaction}} = \{g_1, g_2, g_3\} \cup \{g_4, \dots, g_7\} \cup \{g_{14}, g_{15}\} \cup \{g_8, \dots, g_{13}\} = G
+  F_{\texttt{user}} \cup F_{\texttt{portfolio}} \cup F_{\texttt{exchange}} \cup F_{\texttt{stock}} \cup F_{\texttt{stock\_price\_history}} \cup F_{\texttt{watchlist}} \cup F_{\texttt{transaction}} \cup F_{\texttt{limit\_order}} = \{g_1, \dots, g_{34}\} = G
 \]
-$G$ is a minimal basis of $F$, so $G^+ = F^+$. Every FD of $F$ can therefore be enforced inside a single relation, by that relation's primary key or the \texttt{UNIQUE} constraint on \texttt{email}, with no join needed. The decomposition is \textbf{dependency preserving}, as well as lossless.
+$G$ is a minimal basis of $F$, so $G^+ = F^+$. Every FD of $F$ can therefore be enforced inside a single relation, by that relation's primary key or a \texttt{UNIQUE} constraint, with no join needed. The decomposition is \textbf{dependency preserving}, as well as lossless.
 
 \begin{center}
-\begin{tabular}{l l l}
+\begin{tabular}{l l l l}
   \toprule
-  \textbf{Relation} & \textbf{Minimal basis of projection} & \textbf{Enforced in \texttt{sql/ddl.sql} by} \\
+  \textbf{Relation} & \textbf{Minimal basis of projection} & \textbf{From} & \textbf{Enforced in \texttt{sql/ddl.sql} by} \\
   \midrule
-  \texttt{user} & $g_1, g_2, g_3$ & \texttt{pk\_user}, \texttt{uq\_user\_email} \\
-  \texttt{stock} & $g_4$ -- $g_7$ & \texttt{pk\_stock} \\
-  \texttt{holds} & $g_{14}, g_{15}$ & \texttt{pk\_holds} \\
-  \texttt{transaction} & $g_8$ -- $g_{13}$ & \texttt{pk\_transaction} \\
+  \texttt{user} & $\gr{1}{4}$ & $FD_1$, $FD_2$ & \texttt{pk\_user}, \texttt{uq\_user\_email} \\
+  \texttt{portfolio} & $\gr{5}{8}$ & $FD_3$, $FD_4$ & \texttt{pk\_portfolio}, \texttt{uq\_portfolio\_user\_name} \\
+  \texttt{exchange} & $\gr{9}{11}$ & $FD_5$ & \texttt{pk\_exchange} \\
+  \texttt{stock} & $\gr{12}{14}$ & $FD_6$ & \texttt{pk\_stock} \\
+  \texttt{stock\_price\_history} & $\gr{15}{19}$ & $FD_7$ & \texttt{pk\_stock\_price\_history} \\
+  \texttt{watchlist} & $g_{20}$, $g_{21}$ & $FD_8$ & \texttt{pk\_watchlist} \\
+  \texttt{transaction} & $\gr{22}{27}$ & $FD_9$ & \texttt{pk\_transaction} \\
+  \texttt{limit\_order} & $\gr{28}{34}$ & $FD_{10}$ & \texttt{pk\_limit\_order} \\
   \bottomrule
 \end{tabular}
 \end{center}
